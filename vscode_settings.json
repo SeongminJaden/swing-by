@@ -1,0 +1,28 @@
+{
+  "rust-analyzer.checkOnSave.command": "clippy",
+  "rust-analyzer.checkOnSave.extraArgs": [
+    "--all-targets",
+    "--all-features",
+    "--",
+    "-D",
+    "warnings"
+  ],
+  "editor.formatOnSave": true,
+  "[rust]": {
+    "editor.defaultFormatter": "rust-lang.rust-analyzer",
+    "editor.formatOnSave": true
+  },
+  "rust-analyzer.rustfmt.extraArgs": [
+    "--edition",
+    "2021"
+  ],
+  "files.exclude": {
+    "**/target": true,
+    "**/.git": true,
+    "**/.vscode": false
+  },
+  "search.exclude": {
+    "**/target": true,
+    "**/Cargo.lock": true
+  }
+}
