@@ -1,5 +1,7 @@
 # Swing-by — Local LLM Multi-Agent System
 
+[🇰🇷 한국어로 읽기](README_KO.md)
+
 > A fully local, privacy-first AI agent built on **Ollama + Gemma** (or any compatible model).  
 > 13 specialized AI roles, parallel tool execution, RAG codebase indexing, GitHub PR automation, and AI-to-AI communication — all running on your machine.
 
