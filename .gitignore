@@ -1,0 +1,33 @@
+# Build output
+/target/
+Cargo.lock
+
+# Runtime files (generated at runtime, not for source control)
+.ai_session*.json
+.ai_todos.json
+.ai_memory.json
+.ai_config.json
+.rag_index.json
+.sprint_checkpoint.json
+sprint-report-*.md
+ai-agent.toml
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
