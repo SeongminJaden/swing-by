@@ -5,6 +5,10 @@
 [![Rust](https://img.shields.io/badge/rust-1.75%2B-orange)](https://www.rust-lang.org/)
 [![Ollama](https://img.shields.io/badge/ollama-compatible-blue)](https://ollama.ai)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow)](LICENSE)
+[![](https://img.shields.io/badge/톡코딩에게_후원하기-☕-yellow?style=for-the-badge)](https://buymeacoffee.com/tok_coding)
+
+> 이 프로젝트가 도움이 됐다면 커피 한 잔 후원해 주세요! ☕  
+> 여러분의 후원이 프로젝트를 지속하고 새로운 기능 개발에 큰 힘이 됩니다.
 
 ---
 

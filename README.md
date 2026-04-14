@@ -6,6 +6,10 @@
 [![Rust](https://img.shields.io/badge/rust-1.75%2B-orange)](https://www.rust-lang.org/)
 [![Ollama](https://img.shields.io/badge/ollama-compatible-blue)](https://ollama.ai)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow)](LICENSE)
+[![](https://img.shields.io/badge/Support_tok__coding-☕-yellow?style=for-the-badge)](https://buymeacoffee.com/tok_coding)
+
+> If you find this project useful, consider buying me a coffee! ☕  
+> It helps keep the project alive and supports future development.
 
 ---
 
