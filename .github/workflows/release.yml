@@ -8,6 +8,7 @@ on:
 env:
   CARGO_TERM_COLOR: always
   BINARY_NAME: ai_agent
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   build:
@@ -20,16 +21,19 @@ jobs:
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
             artifact: ai_agent-linux-x86_64
+
           - target: aarch64-unknown-linux-gnu
-            os: ubuntu-latest
+            os: ubuntu-24.04-arm
             artifact: ai_agent-linux-arm64
-            cross: true
+
           - target: x86_64-apple-darwin
-            os: macos-latest
+            os: macos-13
             artifact: ai_agent-macos-x86_64
+
           - target: aarch64-apple-darwin
             os: macos-latest
             artifact: ai_agent-macos-arm64
+
           - target: x86_64-pc-windows-msvc
             os: windows-latest
             artifact: ai_agent-windows-x86_64.exe
@@ -42,16 +46,7 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
-      - name: Install cross (Linux ARM64)
-        if: matrix.cross
-        run: cargo install cross --git https://github.com/cross-rs/cross
-
-      - name: Build (cross)
-        if: matrix.cross
-        run: cross build --release --target ${{ matrix.target }}
-
-      - name: Build (native)
-        if: ${{ !matrix.cross }}
+      - name: Build
         run: cargo build --release --target ${{ matrix.target }}
 
       - name: Rename binary (Unix)
@@ -62,9 +57,9 @@ jobs:
 
       - name: Rename binary (Windows)
         if: matrix.os == 'windows-latest'
+        shell: pwsh
         run: |
           Copy-Item "target/${{ matrix.target }}/release/${{ env.BINARY_NAME }}.exe" "${{ matrix.artifact }}"
-        shell: pwsh
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -95,17 +90,22 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          name: AI Agent ${{ github.ref_name }}
+          name: Swing-by ${{ github.ref_name }}
           body: |
-            ## AI Agent ${{ github.ref_name }}
+            ## Swing-by ${{ github.ref_name }}
 
             Local LLM multi-agent system powered by Ollama.
 
             ### Quick Install
 
-            **Linux / macOS:**
+            **Linux:**
             ```bash
             curl -fsSL https://raw.githubusercontent.com/${{ github.repository }}/main/install.sh | bash
+            ```
+
+            **macOS:**
+            ```bash
+            curl -fsSL https://raw.githubusercontent.com/${{ github.repository }}/main/install_mac.sh | bash
             ```
 
             **Windows (PowerShell):**
