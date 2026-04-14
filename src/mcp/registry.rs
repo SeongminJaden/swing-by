@@ -1,4 +1,4 @@
-//! MCP 서버 레지스트리 — 여러 MCP 서버를 관리하고 툴을 통합 제공
+//! MCP server registry — manages multiple MCP servers and provides unified tool access
 
 use anyhow::Result;
 use std::collections::HashMap;
@@ -6,11 +6,11 @@ use super::client::{load_mcp_configs, McpClient, McpTool, McpToolResult};
 
 pub struct McpRegistry {
     clients: HashMap<String, McpClient>,
-    tools: Vec<McpTool>,  // 모든 서버의 툴 통합 목록
+    tools: Vec<McpTool>,  // unified tool list from all servers
 }
 
 impl McpRegistry {
-    /// 설정 파일에서 MCP 서버를 자동으로 로드하고 초기화
+    /// Automatically load and initialize MCP servers from config file
     pub fn from_config() -> Self {
         let configs = load_mcp_configs();
         let mut clients = HashMap::new();
@@ -25,7 +25,7 @@ impl McpRegistry {
         Self { clients, tools: Vec::new() }
     }
 
-    /// 모든 서버에서 툴 목록 수집 (비동기, 실패 서버는 건너뜀)
+    /// Collect tool list from all servers (async, skips failed servers)
     pub async fn discover_tools(&mut self) -> usize {
         self.tools.clear();
         for client in self.clients.values() {
@@ -36,56 +36,56 @@ impl McpRegistry {
                     }
                 }
                 Err(e) => {
-                    eprintln!("[MCP] 서버 '{}' 툴 조회 실패: {}", client.config.name, e);
+                    eprintln!("[MCP] Server '{}' tool discovery failed: {}", client.config.name, e);
                 }
             }
         }
         self.tools.len()
     }
 
-    /// 등록된 모든 툴 목록 반환
+    /// Return list of all registered tools
     pub fn tools(&self) -> &[McpTool] {
         &self.tools
     }
 
-    /// 툴을 이름으로 찾아 실행
+    /// Find and execute a tool by name
     pub async fn call_tool(&self, tool_name: &str, arguments: serde_json::Value) -> Result<McpToolResult> {
-        // 어느 서버에 있는지 찾기
+        // Find which server it belongs to
         let tool = self.tools.iter()
             .find(|t| t.name == tool_name)
-            .ok_or_else(|| anyhow::anyhow!("MCP 툴을 찾을 수 없음: {}", tool_name))?;
+            .ok_or_else(|| anyhow::anyhow!("MCP tool not found: {}", tool_name))?;
 
         let client = self.clients.get(&tool.server)
-            .ok_or_else(|| anyhow::anyhow!("MCP 서버를 찾을 수 없음: {}", tool.server))?;
+            .ok_or_else(|| anyhow::anyhow!("MCP server not found: {}", tool.server))?;
 
         client.call_tool(tool_name, arguments).await
     }
 
-    /// AI 시스템 프롬프트에 추가할 MCP 툴 설명 생성
+    /// Generate MCP tool descriptions to add to AI system prompt
     pub fn tool_descriptions_for_prompt(&self) -> String {
         if self.tools.is_empty() {
             return String::new();
         }
 
         let mut lines = vec![
-            "\n## MCP 툴 (외부 서버)".to_string(),
-            "MCP 툴 호출 형식: TOOL: mcp_call <server> <tool_name> <JSON arguments>".to_string(),
+            "\n## MCP tools (external servers)".to_string(),
+            "MCP tool call format: TOOL: mcp_call <server> <tool_name> <JSON arguments>".to_string(),
             String::new(),
         ];
 
         for tool in &self.tools {
-            lines.push(format!("- **{}** (서버: {}): {}", tool.name, tool.server, tool.description));
+            lines.push(format!("- **{}** (server: {}): {}", tool.name, tool.server, tool.description));
         }
 
         lines.join("\n")
     }
 
-    /// 연결된 서버 수
+    /// Number of connected servers
     pub fn server_count(&self) -> usize {
         self.clients.len()
     }
 
-    /// 서버 이름 목록
+    /// List of server names
     pub fn server_names(&self) -> Vec<String> {
         self.clients.keys().cloned().collect()
     }

@@ -1,7 +1,7 @@
-/// 프로젝트 스캐폴딩 툴
+/// Project scaffolding tool
 ///
-/// 다양한 언어/프레임워크의 프로젝트 구조를 자동 생성
-/// (cargo new, npm create, pip, Django 등 활용)
+/// Automatically generates project structures for various languages/frameworks
+/// (uses cargo new, npm create, pip, Django, etc.)
 
 use anyhow::{Context, Result};
 use std::process::Command;
@@ -10,20 +10,20 @@ use std::time::Duration;
 
 const SCAFFOLD_TIMEOUT: u64 = 120;
 
-/// cargo 실행 파일 경로 탐색 (PATH에 없으면 ~/.cargo/bin/cargo)
+/// Locate the cargo executable (falls back to ~/.cargo/bin/cargo if not in PATH)
 fn find_cargo() -> String {
-    // PATH에서 찾기
+    // search in PATH
     if Command::new("cargo").arg("--version").output()
         .map(|o| o.status.success()).unwrap_or(false) {
         return "cargo".to_string();
     }
-    // ~/.cargo/bin/cargo
+    // fallback: ~/.cargo/bin/cargo
     let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
     let cargo_path = format!("{}/.cargo/bin/cargo", home);
     if Path::new(&cargo_path).exists() {
         return cargo_path;
     }
-    // 환경변수 CARGO_HOME
+    // CARGO_HOME env var
     if let Ok(ch) = std::env::var("CARGO_HOME") {
         let p = format!("{}/bin/cargo", ch);
         if Path::new(&p).exists() { return p; }
@@ -46,9 +46,9 @@ impl std::fmt::Display for ScaffoldResult {
     }
 }
 
-// ─── 메인 스캐폴딩 함수 ───────────────────────────────────────────────────────
+// ─── Main scaffolding function ─────────────────────────────────────────────────────────────
 
-/// 프로젝트 생성
+/// Create a new project
 /// project_type: rust, python, node, typescript, react, vue, next, django, flask, fastapi,
 ///               go, java-spring, kotlin-spring, express, deno, cpp
 pub fn project_init(project_type: &str, name: &str, path: &str) -> Result<ScaffoldResult> {
@@ -76,7 +76,7 @@ pub fn project_init(project_type: &str, name: &str, path: &str) -> Result<Scaffo
         "cpp" | "c++" => scaffold_cpp(name, &target_dir),
         "deno" => scaffold_deno(name, &target_dir),
         other => anyhow::bail!(
-            "지원하지 않는 프로젝트 타입: '{}'\n지원 타입: rust, rust-lib, python, node, typescript, react, react-ts, vue, next, django, flask, fastapi, go, express, cpp, deno",
+            "Unsupported project type: '{}'\nSupported: rust, rust-lib, python, node, typescript, react, react-ts, vue, next, django, flask, fastapi, go, express, cpp, deno",
             other
         ),
     }
@@ -88,7 +88,7 @@ fn scaffold_rust(name: &str, path: &str) -> Result<ScaffoldResult> {
     let cargo = find_cargo();
     let out = run_cmd(&[&cargo, "new", "--bin", path])?;
 
-    // Cargo.toml에 공통 의존성 추가
+    // add common dependencies to Cargo.toml
     let cargo_toml_path = format!("{}/Cargo.toml", path);
     if Path::new(&cargo_toml_path).exists() {
         let content = std::fs::read_to_string(&cargo_toml_path)?;
@@ -96,23 +96,23 @@ fn scaffold_rust(name: &str, path: &str) -> Result<ScaffoldResult> {
         let _ = std::fs::write(&cargo_toml_path, updated);
     }
 
-    // README.md 생성
+    // create README.md
     write_file_safe(&format!("{}/README.md", path), &format!(
-        "# {}\n\nRust 프로젝트\n\n## 빌드\n\n```bash\ncargo build\n```\n\n## 실행\n\n```bash\ncargo run\n```\n\n## 테스트\n\n```bash\ncargo test\n```\n",
+        "# {}\n\nRust project\n\n## Build\n\n```bash\ncargo build\n```\n\n## Run\n\n```bash\ncargo run\n```\n\n## Test\n\n```bash\ncargo test\n```\n",
         name
     ));
 
-    // src/lib.rs 없으면 스킵
-    let result = format!("✅ Rust 프로젝트 생성: {}\n{}", path, out);
+    // skip if src/lib.rs does not exist
+    let result = format!("✅ Rust project created: {}\n{}", path, out);
     Ok(ScaffoldResult { output: result, success: true, path: path.to_string() })
 }
 
 fn scaffold_rust_lib(name: &str, path: &str) -> Result<ScaffoldResult> {
     let cargo = find_cargo();
     let out = run_cmd(&[&cargo, "new", "--lib", path])?;
-    write_file_safe(&format!("{}/README.md", path), &format!("# {}\n\nRust 라이브러리 크레이트\n", name));
+    write_file_safe(&format!("{}/README.md", path), &format!("# {}\n\nRust library crate\n", name));
     Ok(ScaffoldResult {
-        output: format!("✅ Rust 라이브러리 생성: {}\n{}", path, out),
+        output: format!("✅ Rust library created: {}\n{}", path, out),
         success: true,
         path: path.to_string(),
     })
@@ -121,7 +121,7 @@ fn scaffold_rust_lib(name: &str, path: &str) -> Result<ScaffoldResult> {
 // ─── Python ──────────────────────────────────────────────────────────────────
 
 fn scaffold_python(name: &str, path: &str) -> Result<ScaffoldResult> {
-    std::fs::create_dir_all(path).context("디렉토리 생성 실패")?;
+    std::fs::create_dir_all(path).context("Failed to create directory")?;
     std::fs::create_dir_all(&format!("{}/src", path))?;
     std::fs::create_dir_all(&format!("{}/tests", path))?;
 
@@ -137,7 +137,7 @@ fn scaffold_python(name: &str, path: &str) -> Result<ScaffoldResult> {
     ));
 
     // requirements.txt
-    write_file_safe(&format!("{}/requirements.txt", path), "# 의존성 목록\n");
+    write_file_safe(&format!("{}/requirements.txt", path), "# dependency list\n");
 
     // .gitignore
     write_file_safe(&format!("{}/.gitignore", path),
@@ -152,12 +152,12 @@ fn scaffold_python(name: &str, path: &str) -> Result<ScaffoldResult> {
 
     // README
     write_file_safe(&format!("{}/README.md", path), &format!(
-        "# {}\n\n## 설치\n\n```bash\npython3 -m venv .venv\nsource .venv/bin/activate\npip install -r requirements.txt\n```\n\n## 실행\n\n```bash\npython main.py\n```\n\n## 테스트\n\n```bash\npytest\n```\n",
+        "# {}\n\n## Install\n\n```bash\npython3 -m venv .venv\nsource .venv/bin/activate\npip install -r requirements.txt\n```\n\n## Run\n\n```bash\npython main.py\n```\n\n## Test\n\n```bash\npytest\n```\n",
         name
     ));
 
     Ok(ScaffoldResult {
-        output: format!("✅ Python 프로젝트 생성: {}", path),
+        output: format!("✅ Python project created: {}", path),
         success: true,
         path: path.to_string(),
     })
@@ -244,12 +244,12 @@ fn scaffold_node(name: &str, path: &str, typescript: bool) -> Result<ScaffoldRes
         "node_modules/\ndist/\n.env\n*.log\ncoverage/\n"
     );
     write_file_safe(&format!("{}/README.md", path), &format!(
-        "# {}\n\n## 설치\n\n```bash\nnpm install\n```\n\n## 실행\n\n```bash\nnpm start\n```\n",
+        "# {}\n\n## Install\n\n```bash\nnpm install\n```\n\n## Run\n\n```bash\nnpm start\n```\n",
         name
     ));
 
     Ok(ScaffoldResult {
-        output: format!("✅ {} 프로젝트 생성: {}\n(npm install 실행 필요)", if typescript { "TypeScript" } else { "Node.js" }, path),
+        output: format!("✅ {} project created: {}\n(run npm install to install dependencies)", if typescript { "TypeScript" } else { "Node.js" }, path),
         success: true,
         path: path.to_string(),
     })
@@ -258,7 +258,7 @@ fn scaffold_node(name: &str, path: &str, typescript: bool) -> Result<ScaffoldRes
 // ─── React ────────────────────────────────────────────────────────────────────
 
 fn scaffold_react(name: &str, path: &str, typescript: bool) -> Result<ScaffoldResult> {
-    // npm create vite 시도
+    // attempt npm create vite
     let template = if typescript { "react-ts" } else { "react" };
     let parent = Path::new(path).parent()
         .and_then(|p| p.to_str())
@@ -270,13 +270,13 @@ fn scaffold_react(name: &str, path: &str, typescript: bool) -> Result<ScaffoldRe
 
     if let Ok(o) = out {
         return Ok(ScaffoldResult {
-            output: format!("✅ React 프로젝트 생성: {}\n{}\n\ncd {}\nnpm install\nnpm run dev", path, o, name),
+            output: format!("✅ React project created: {}\n{}\n\ncd {}\nnpm install\nnpm run dev", path, o, name),
             success: true,
             path: path.to_string(),
         });
     }
 
-    // 폴백: 수동 생성
+    // fallback: manual creation
     std::fs::create_dir_all(&format!("{}/src", path))?;
     std::fs::create_dir_all(&format!("{}/public", path))?;
 
@@ -289,12 +289,12 @@ fn scaffold_react(name: &str, path: &str, typescript: bool) -> Result<ScaffoldRe
         "import React from 'react';\nimport ReactDOM from 'react-dom/client';\nimport App from './App';\n\nReactDOM.createRoot(document.getElementById('root')!).render(\n  <React.StrictMode>\n    <App />\n  </React.StrictMode>\n);\n"
     );
     write_file_safe(&format!("{}/index.html", path), &format!(
-        "<!DOCTYPE html>\n<html lang=\"ko\">\n<head>\n  <meta charset=\"UTF-8\" />\n  <title>{}</title>\n</head>\n<body>\n  <div id=\"root\"></div>\n</body>\n</html>\n",
+        "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"UTF-8\" />\n  <title>{}</title>\n</head>\n<body>\n  <div id=\"root\"></div>\n</body>\n</html>\n",
         name
     ));
 
     Ok(ScaffoldResult {
-        output: format!("✅ React 프로젝트 생성 (수동): {}", path),
+        output: format!("✅ React project created (manual): {}", path),
         success: true,
         path: path.to_string(),
     })
@@ -309,16 +309,16 @@ fn scaffold_vue(name: &str, path: &str) -> Result<ScaffoldResult> {
 
     if let Ok(o) = out {
         return Ok(ScaffoldResult {
-            output: format!("✅ Vue 프로젝트 생성: {}\n{}", path, o),
+            output: format!("✅ Vue project created: {}\n{}", path, o),
             success: true,
             path: path.to_string(),
         });
     }
 
-    // 폴백: Vite Vue 템플릿
+    // fallback: Vite Vue template
     let _ = run_cmd_in(&["npm", "create", "vite@latest", name, "--", "--template", "vue"], parent);
     Ok(ScaffoldResult {
-        output: format!("✅ Vue 프로젝트 생성: {}", path),
+        output: format!("✅ Vue project created: {}", path),
         success: true,
         path: path.to_string(),
     })
@@ -336,11 +336,11 @@ fn scaffold_next(name: &str, path: &str) -> Result<ScaffoldResult> {
 
     match out {
         Ok(o) => Ok(ScaffoldResult {
-            output: format!("✅ Next.js 프로젝트 생성: {}\n{}", path, o),
+            output: format!("✅ Next.js project created: {}\n{}", path, o),
             success: true,
             path: path.to_string(),
         }),
-        Err(e) => anyhow::bail!("Next.js 프로젝트 생성 실패: {}\nnpx 및 Node.js 설치 필요", e),
+        Err(e) => anyhow::bail!("Failed to create Next.js project: {}\nnpx and Node.js are required", e),
     }
 }
 
@@ -354,12 +354,12 @@ fn scaffold_django(name: &str, path: &str) -> Result<ScaffoldResult> {
     let out = run_cmd_in(&["django-admin", "startproject", name, path], parent);
 
     let result_msg = match out {
-        Ok(o) => format!("✅ Django 프로젝트 생성: {}\n{}", path, o),
+        Ok(o) => format!("✅ Django project created: {}\n{}", path, o),
         Err(_) => {
-            // pip로 django 설치 후 재시도
+            // install django via pip then retry
             let _ = run_cmd(&["python3", "-m", "pip", "install", "django"]);
             let o = run_cmd_in(&["django-admin", "startproject", name, path], parent)?;
-            format!("✅ Django 프로젝트 생성: {}\n{}", path, o)
+            format!("✅ Django project created: {}\n{}", path, o)
         }
     };
 
@@ -368,13 +368,13 @@ fn scaffold_django(name: &str, path: &str) -> Result<ScaffoldResult> {
         "Django>=4.2\ndjangorestframework>=3.14\ndjango-cors-headers>=4.0\npsycopg2-binary>=2.9\npython-decouple>=3.8\n"
     );
 
-    // .env 예시
+    // .env example
     write_file_safe(&format!("{}/.env.example", path),
         "DEBUG=True\nSECRET_KEY=your-secret-key-here\nDATABASE_URL=sqlite:///db.sqlite3\nALLOWED_HOSTS=localhost,127.0.0.1\n"
     );
 
     Ok(ScaffoldResult {
-        output: format!("{}\n\n실행:\n  python manage.py migrate\n  python manage.py runserver", result_msg),
+        output: format!("{}\n\nRun:\n  python manage.py migrate\n  python manage.py runserver", result_msg),
         success: true,
         path: path.to_string(),
     })
@@ -419,12 +419,12 @@ fn scaffold_flask(name: &str, path: &str) -> Result<ScaffoldResult> {
         "__pycache__/\n*.pyc\n.env\nvenv/\n*.db\ninstance/\n"
     );
     write_file_safe(&format!("{}/README.md", path), &format!(
-        "# {}\n\nFlask 웹 애플리케이션\n\n## 설치\n\n```bash\npip install -r requirements.txt\n```\n\n## 실행\n\n```bash\npython run.py\n```\n",
+        "# {}\n\nFlask web application\n\n## Install\n\n```bash\npip install -r requirements.txt\n```\n\n## Run\n\n```bash\npython run.py\n```\n",
         name
     ));
 
     Ok(ScaffoldResult {
-        output: format!("✅ Flask 프로젝트 생성: {}", path),
+        output: format!("✅ Flask project created: {}", path),
         success: true,
         path: path.to_string(),
     })
@@ -466,12 +466,12 @@ fn scaffold_fastapi(name: &str, path: &str) -> Result<ScaffoldResult> {
     );
 
     write_file_safe(&format!("{}/README.md", path), &format!(
-        "# {}\n\nFastAPI 백엔드\n\n## 설치\n\n```bash\npip install -r requirements.txt\n```\n\n## 실행\n\n```bash\nuvicorn main:app --reload\n```\n\n## API 문서\n\n- Swagger: http://localhost:8000/docs\n- ReDoc: http://localhost:8000/redoc\n",
+        "# {}\n\nFastAPI backend\n\n## Install\n\n```bash\npip install -r requirements.txt\n```\n\n## Run\n\n```bash\nuvicorn main:app --reload\n```\n\n## API Docs\n\n- Swagger: http://localhost:8000/docs\n- ReDoc: http://localhost:8000/redoc\n",
         name
     ));
 
     Ok(ScaffoldResult {
-        output: format!("✅ FastAPI 프로젝트 생성: {}", path),
+        output: format!("✅ FastAPI project created: {}", path),
         success: true,
         path: path.to_string(),
     })
@@ -505,12 +505,12 @@ fn scaffold_go(name: &str, path: &str) -> Result<ScaffoldResult> {
     );
 
     write_file_safe(&format!("{}/README.md", path), &format!(
-        "# {}\n\nGo 프로젝트\n\n## 빌드\n\n```bash\nmake build\n```\n\n## 실행\n\n```bash\nmake run\n```\n",
+        "# {}\n\nGo project\n\n## Build\n\n```bash\nmake build\n```\n\n## Run\n\n```bash\nmake run\n```\n",
         name
     ));
 
     Ok(ScaffoldResult {
-        output: format!("✅ Go 프로젝트 생성: {}", path),
+        output: format!("✅ Go project created: {}", path),
         success: true,
         path: path.to_string(),
     })
@@ -546,12 +546,12 @@ fn scaffold_express(name: &str, path: &str) -> Result<ScaffoldResult> {
     );
 
     write_file_safe(&format!("{}/README.md", path), &format!(
-        "# {}\n\nExpress.js API\n\n## 설치\n\n```bash\nnpm install\n```\n\n## 실행\n\n```bash\nnpm run dev\n```\n",
+        "# {}\n\nExpress.js API\n\n## Install\n\n```bash\nnpm install\n```\n\n## Run\n\n```bash\nnpm run dev\n```\n",
         name
     ));
 
     Ok(ScaffoldResult {
-        output: format!("✅ Express.js 프로젝트 생성: {}\n(npm install 실행 필요)", path),
+        output: format!("✅ Express.js project created: {}\n(run npm install to install dependencies)", path),
         success: true,
         path: path.to_string(),
     })
@@ -590,7 +590,7 @@ fn scaffold_cpp(name: &str, path: &str) -> Result<ScaffoldResult> {
     );
 
     Ok(ScaffoldResult {
-        output: format!("✅ C++ 프로젝트 생성: {}\n빌드: make build", path),
+        output: format!("✅ C++ project created: {}\nBuild: make build", path),
         success: true,
         path: path.to_string(),
     })
@@ -611,15 +611,15 @@ fn scaffold_deno(name: &str, path: &str) -> Result<ScaffoldResult> {
     ));
 
     Ok(ScaffoldResult {
-        output: format!("✅ Deno 프로젝트 생성: {}\n실행: deno task start", path),
+        output: format!("✅ Deno project created: {}\nRun: deno task start", path),
         success: true,
         path: path.to_string(),
     })
 }
 
-// ─── CI/CD 설정 생성 ─────────────────────────────────────────────────────────
+// ─── CI/CD config generation ───────────────────────────────────────────────────────────────
 
-/// GitHub Actions 워크플로우 생성
+/// Generate a GitHub Actions workflow
 pub fn generate_github_actions(project_type: &str, path: &str) -> Result<String> {
     std::fs::create_dir_all(&format!("{}/.github/workflows", path))?;
 
@@ -632,27 +632,27 @@ pub fn generate_github_actions(project_type: &str, path: &str) -> Result<String>
     };
 
     write_file_safe(&format!("{}/.github/workflows/ci.yml", path), ci_content);
-    Ok(format!("✅ GitHub Actions CI 생성: {}/.github/workflows/ci.yml", path))
+    Ok(format!("✅ GitHub Actions CI created: {}/.github/workflows/ci.yml", path))
 }
 
-/// PR 템플릿 생성
+/// Generate PR and issue templates
 pub fn generate_pr_template(path: &str) -> Result<String> {
     std::fs::create_dir_all(&format!("{}/.github", path))?;
 
     write_file_safe(&format!("{}/.github/PULL_REQUEST_TEMPLATE.md", path),
-        "## 변경 사항\n\n<!-- 무엇을 왜 변경했는지 설명 -->\n\n## 변경 유형\n\n- [ ] feat: 새 기능\n- [ ] fix: 버그 수정\n- [ ] refactor: 리팩토링\n- [ ] docs: 문서\n- [ ] test: 테스트\n- [ ] chore: 기타\n\n## 체크리스트\n\n- [ ] 코드 리뷰 요청\n- [ ] 테스트 추가/수정\n- [ ] 문서 업데이트\n- [ ] Breaking change 없음\n\n## 스크린샷 (UI 변경 시)\n\n"
+        "## Changes\n\n<!-- Describe what and why you changed -->\n\n## Change type\n\n- [ ] feat: new feature\n- [ ] fix: bug fix\n- [ ] refactor: refactoring\n- [ ] docs: documentation\n- [ ] test: tests\n- [ ] chore: other\n\n## Checklist\n\n- [ ] Code review requested\n- [ ] Tests added/updated\n- [ ] Documentation updated\n- [ ] No breaking changes\n\n## Screenshots (if UI change)\n\n"
     );
 
     write_file_safe(&format!("{}/.github/ISSUE_TEMPLATE/bug_report.md", path),
-        "---\nname: 버그 리포트\nabout: 버그를 신고해주세요\ntitle: '[BUG] '\nlabels: bug\n---\n\n## 버그 설명\n\n## 재현 방법\n\n## 기대 동작\n\n## 실제 동작\n\n## 환경\n- OS: \n- 버전: \n"
+        "---\nname: Bug report\nabout: Report a bug\ntitle: '[BUG] '\nlabels: bug\n---\n\n## Bug description\n\n## Steps to reproduce\n\n## Expected behavior\n\n## Actual behavior\n\n## Environment\n- OS: \n- Version: \n"
     );
 
     std::fs::create_dir_all(&format!("{}/.github/ISSUE_TEMPLATE", path))?;
 
-    Ok(format!("✅ PR/이슈 템플릿 생성: {}/.github/", path))
+    Ok(format!("✅ PR/issue templates created: {}/.github/", path))
 }
 
-// ─── CI/CD 템플릿 ─────────────────────────────────────────────────────────────
+// ─── CI/CD templates ───────────────────────────────────────────────────────────────────────
 
 const RUST_CI: &str = r#"name: CI
 
@@ -793,8 +793,8 @@ fn run_cmd(args: &[&str]) -> Result<String> {
     });
 
     let output = rx.recv_timeout(timeout)
-        .context("타임아웃")?
-        .with_context(|| format!("실행 실패: {}", args[0]))?;
+        .context("Timeout")?
+        .with_context(|| format!("Execution failed: {}", args[0]))?;
 
     let out = format!(
         "{}{}",
@@ -821,8 +821,8 @@ fn run_cmd_in(args: &[&str], cwd: &str) -> Result<String> {
     });
 
     let output = rx.recv_timeout(timeout)
-        .context("타임아웃")?
-        .with_context(|| format!("실행 실패: {}", args[0]))?;
+        .context("Timeout")?
+        .with_context(|| format!("Execution failed: {}", args[0]))?;
 
     let out = format!(
         "{}{}",

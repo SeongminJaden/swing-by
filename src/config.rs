@@ -1,12 +1,12 @@
 //! TOML configuration file management
 //!
 //! Priority (higher overrides lower):
-//!   1. 환경변수 (OLLAMA_MODEL, OLLAMA_API_URL 등)
-//!   2. 프로젝트 로컬: ./ai-agent.toml
-//!   3. 전역: ~/.config/ai-agent/config.toml
-//!   4. 기본값
+//!   1. Environment variables (OLLAMA_MODEL, OLLAMA_API_URL, etc.)
+//!   2. Project local: ./ai-agent.toml
+//!   3. Global: ~/.config/ai-agent/config.toml
+//!   4. Defaults
 //!
-//! 예시 config.toml:
+//! Example config.toml:
 //! ```toml
 //! [ollama]
 //! model = "gemma4:e4b"
@@ -24,7 +24,7 @@
 //! max_security_rounds = 5
 //!
 //! [discord]
-//! token = ""       # DISCORD_TOKEN 환경변수 권장
+//! token = ""       # DISCORD_TOKEN environment variable recommended
 //!
 //! [mcp]
 //! config_path = "~/.claude/mcp_servers.json"
@@ -34,7 +34,7 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-// ─── 설정 섹션 ───────────────────────────────────────────────────────────────
+// ─── Configuration sections ───────────────────────────────────────────────────
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OllamaConfig {
@@ -57,7 +57,7 @@ impl Default for OllamaConfig {
 pub struct AgentConfig {
     pub max_turns: usize,
     pub history_enabled: bool,
-    pub history_max_context: usize,  // 이전 세션에서 가져올 최대 메시지 수
+    pub history_max_context: usize,  // Maximum number of messages to load from previous session
 }
 
 impl Default for AgentConfig {
@@ -106,11 +106,11 @@ impl Default for McpConfig {
     }
 }
 
-// ─── 전체 설정 ───────────────────────────────────────────────────────────────
+// ─── Full configuration ───────────────────────────────────────────────────────
 
-/// 역할별 모델 지정 (없으면 기본 ollama.model 사용)
+/// Per-role model assignment (falls back to default ollama.model if absent)
 ///
-/// 예시 (ai-agent.toml):
+/// Example (ai-agent.toml):
 /// ```toml
 /// [roles]
 /// architect = "llama3:70b"
@@ -249,11 +249,11 @@ impl AppConfig {
         }
     }
 
-    /// 설정을 파일에 저장 (템플릿 생성용)
+    /// Save configuration to file (for template generation)
     pub fn save_default(path: &PathBuf) -> Result<()> {
         let config = AppConfig::default();
         let toml_str = toml::to_string_pretty(&config)?;
-        let header = "# ai-agent 설정 파일\n# 환경변수 (OLLAMA_MODEL 등)가 이 파일 설정을 덮어씁니다.\n\n";
+        let header = "# ai-agent configuration file\n# Environment variables (OLLAMA_MODEL, etc.) override settings in this file.\n\n";
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
         }
@@ -315,7 +315,7 @@ history_max_context = 10
         other.ollama.model = "new-model".to_string();
         base.merge(other);
         assert_eq!(base.ollama.model, "new-model");
-        // api_url은 변경 안 됨
+        // api_url should remain unchanged
         assert_eq!(base.ollama.api_url, "http://localhost:11434");
     }
 }

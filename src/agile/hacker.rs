@@ -1,23 +1,23 @@
-//! 해커 에이전트 — 자체 프로젝트 보안 감사 전문가
+//! Hacker agent — security auditor for your own project
 //!
-//! ⚠️  이 에이전트는 사용자가 직접 만든 프로젝트에만 사용합니다.
-//!     외부 시스템에 대한 공격 시도는 절대 하지 않습니다.
+//! ⚠️  This agent is used only for projects you built yourself.
+//!     It never attempts attacks on external systems.
 //!
-//! 역할:
-//!   - OWASP Top 10 기준으로 코드를 정적 분석
-//!   - cargo audit, semgrep, bandit 등 보안 스캐너 실행
-//!   - 취약한 코드 패턴 탐지 (SQL injection, XSS, SSRF 등)
-//!   - 의존성 취약점 (CVE) 확인
-//!   - PoC(Proof of Concept) 작성으로 실제 영향도 검증
-//!   - 상세 보안 리포트 생성
-//!   - Developer에게 수정 지시서 전달
+//! Role:
+//!   - Static analysis of code against OWASP Top 10
+//!   - Run security scanners: cargo audit, semgrep, bandit, etc.
+//!   - Detect vulnerable code patterns (SQL injection, XSS, SSRF, etc.)
+//!   - Check dependency vulnerabilities (CVE)
+//!   - Write PoC (Proof of Concept) to verify real-world impact
+//!   - Generate detailed security reports
+//!   - Deliver fix instructions to Developer
 //!
-//! 루프:
-//!   Developer 구현 완료
-//!   → HackerAgent 취약점 분석
-//!   → 취약점 발견 → Developer 수정
-//!   → QAAgent 재검증
-//!   → 모두 OK → Done ✅
+//! Loop:
+//!   Developer implementation complete
+//!   → HackerAgent vulnerability analysis
+//!   → Vulnerabilities found → Developer fixes
+//!   → QAAgent re-verification
+//!   → All OK → Done ✅
 
 use crate::agent::ollama::OllamaClient;
 use crate::agent::node::{NodeHub, NodeMessage, MsgType};
@@ -25,7 +25,7 @@ use crate::agile::board::AgileBoard;
 use crate::agile::security::{OwaspCategory, SecurityReport, Severity, Vulnerability};
 use crate::agile::story::UserStory;
 
-// ─── 보안 스캐너 정의 ────────────────────────────────────────────────────────
+// ─── Security scanner definitions ─────────────────────────────────────────────
 
 struct ScanResult {
     tool: String,
@@ -34,11 +34,11 @@ struct ScanResult {
     found_issues: bool,
 }
 
-/// 사용 가능한 보안 스캐너를 순서대로 실행
+/// Run available security scanners in sequence
 async fn run_static_scanners(project_path: &str) -> Vec<ScanResult> {
     let mut results = Vec::new();
 
-    // 1. cargo audit (Rust 의존성 CVE)
+    // 1. cargo audit (Rust dependency CVEs)
     let cargo_result = crate::tools::system::run_shell(
         &format!("cd {} && cargo audit --json 2>/dev/null || cargo audit 2>&1", project_path)
     );
@@ -52,17 +52,17 @@ async fn run_static_scanners(project_path: &str) -> Vec<ScanResult> {
         });
     }
 
-    // 2. grep으로 위험 패턴 탐지 (빠른 휴리스틱)
+    // 2. grep for dangerous patterns (quick heuristics)
     let patterns = [
-        ("unsafe", "Unsafe Rust 블록"),
-        ("unwrap()", "unwrap() 패닉 위험"),
-        ("expect(", "expect() 패닉 위험"),
-        ("eval(", "코드 인젝션 위험"),
-        ("exec(", "명령어 인젝션 위험"),
-        ("sql", "SQL 쿼리 패턴"),
-        ("password", "패스워드 하드코딩 의심"),
-        ("secret", "시크릿 하드코딩 의심"),
-        ("TODO.*security", "보안 관련 TODO 미완성"),
+        ("unsafe", "Unsafe Rust block"),
+        ("unwrap()", "unwrap() panic risk"),
+        ("expect(", "expect() panic risk"),
+        ("eval(", "code injection risk"),
+        ("exec(", "command injection risk"),
+        ("sql", "SQL query pattern"),
+        ("password", "suspected hardcoded password"),
+        ("secret", "suspected hardcoded secret"),
+        ("TODO.*security", "incomplete security TODO"),
     ];
     for (pat, desc) in &patterns {
         if let Ok(found) = crate::tools::grep_files(pat, project_path) {
@@ -72,14 +72,14 @@ async fn run_static_scanners(project_path: &str) -> Vec<ScanResult> {
                     .collect::<Vec<_>>().join("\n");
                 results.push(ScanResult {
                     tool: format!("grep:{}", pat),
-                    output: format!("패턴 '{}' ({}) — {} 곳 발견:\n{}", pat, desc, found.len(), out),
+                    output: format!("Pattern '{}' ({}) — {} occurrence(s) found:\n{}", pat, desc, found.len(), out),
                     found_issues: true,
                 });
             }
         }
     }
 
-    // 3. semgrep (설치된 경우)
+    // 3. semgrep (if installed)
     let semgrep = crate::tools::system::run_shell(
         &format!("cd {} && semgrep --config=auto --json . 2>/dev/null | head -c 4096", project_path)
     );
@@ -94,7 +94,7 @@ async fn run_static_scanners(project_path: &str) -> Vec<ScanResult> {
         }
     }
 
-    // 4. bandit (Python 프로젝트용)
+    // 4. bandit (for Python projects)
     let bandit = crate::tools::system::run_shell(
         &format!("cd {} && bandit -r . -f txt 2>/dev/null | head -c 3000", project_path)
     );
@@ -109,7 +109,7 @@ async fn run_static_scanners(project_path: &str) -> Vec<ScanResult> {
         }
     }
 
-    // 5. npm audit (Node.js 프로젝트용)
+    // 5. npm audit (for Node.js projects)
     let npm_audit = crate::tools::system::run_shell(
         &format!("cd {} && npm audit --json 2>/dev/null | head -c 3000", project_path)
     );
@@ -124,7 +124,7 @@ async fn run_static_scanners(project_path: &str) -> Vec<ScanResult> {
         }
     }
 
-    // 6. 파일 권한 / 환경변수 하드코딩 확인
+    // 6. File permissions / hardcoded env var check
     let env_check = crate::tools::system::run_shell(
         &format!(
             r#"cd {} && grep -rn --include="*.rs" --include="*.py" --include="*.js" \
@@ -136,7 +136,7 @@ async fn run_static_scanners(project_path: &str) -> Vec<ScanResult> {
         if !r.stdout.trim().is_empty() {
             results.push(ScanResult {
                 tool: "secret-scan".to_string(),
-                output: format!("하드코딩된 시크릿 의심:\n{}", r.stdout),
+                output: format!("Suspected hardcoded secrets:\n{}", r.stdout),
                 found_issues: true,
             });
         }
@@ -145,56 +145,56 @@ async fn run_static_scanners(project_path: &str) -> Vec<ScanResult> {
     results
 }
 
-// ─── 해커 에이전트 시스템 프롬프트 ──────────────────────────────────────────
+// ─── Hacker agent system prompt ────────────────────────────────────────────
 
 fn hacker_system_prompt(story: &UserStory, scan_results: &str) -> String {
     format!(
-        "당신은 화이트햇 보안 전문가(Penetration Tester)입니다.\n\
-         ⚠️  당신의 임무는 사용자가 직접 만든 프로젝트의 보안을 검사하는 것입니다.\n\
-         외부 시스템, 타인의 시스템에 대한 공격 시도는 절대 수행하지 않습니다.\n\n\
-         분석 대상: 스토리 [{}] — {}\n\n\
-         수행할 작업:\n\
-         1. 🔍 정적 분석 결과를 검토하고 추가 코드 패턴 분석\n\
-         2. 🧪 OWASP Top 10 기준으로 각 카테고리 체크\n\
-         3. 💉 인젝션 취약점 (SQL, Command, LDAP, XSS, XXE)\n\
-         4. 🔐 인증/세션 관리 취약점\n\
-         5. 🔓 접근 제어 문제\n\
-         6. 📦 의존성 CVE 확인\n\
-         7. 🔑 하드코딩된 시크릿, 키, 패스워드\n\
+        "You are a white-hat security expert (Penetration Tester).\n\
+         ⚠️  Your mission is to audit the security of a project built by the user.\n\
+         You never attempt attacks on external or third-party systems.\n\n\
+         Target: Story [{}] — {}\n\n\
+         Tasks to perform:\n\
+         1. 🔍 Review static analysis results and analyze additional code patterns\n\
+         2. 🧪 Check each OWASP Top 10 category\n\
+         3. 💉 Injection vulnerabilities (SQL, Command, LDAP, XSS, XXE)\n\
+         4. 🔐 Authentication/session management vulnerabilities\n\
+         5. 🔓 Access control issues\n\
+         6. 📦 Dependency CVE checks\n\
+         7. 🔑 Hardcoded secrets, keys, passwords\n\
          8. 🌐 SSRF, CSRF, Open Redirect\n\
-         9. 📝 민감 정보 노출 (로그, 에러 메시지)\n\
+         9. 📝 Sensitive information exposure (logs, error messages)\n\
          10. ⚡ Race Condition, Buffer Overflow, Use-after-free\n\n\
-         정적 분석 결과:\n{}\n\n\
-         출력 형식: JSON\n\
+         Static analysis results:\n{}\n\n\
+         Output format: JSON\n\
          {{\n\
            \"vulnerabilities\": [\n\
              {{\n\
                \"id\": \"V-1\",\n\
-               \"title\": \"취약점 이름\",\n\
+               \"title\": \"vulnerability name\",\n\
                \"severity\": \"Critical|High|Medium|Low|Info\",\n\
                \"owasp\": \"A03: Injection\",\n\
                \"file\": \"src/main.rs\",\n\
                \"line\": 42,\n\
-               \"code_snippet\": \"취약한 코드\",\n\
-               \"description\": \"상세 설명\",\n\
-               \"impact\": \"악용 시 영향\",\n\
-               \"attack_vector\": \"공격 방법\",\n\
-               \"proof_of_concept\": \"PoC 코드 또는 명령어\",\n\
-               \"fix_suggestion\": \"구체적인 수정 방법\",\n\
+               \"code_snippet\": \"vulnerable code\",\n\
+               \"description\": \"detailed description\",\n\
+               \"impact\": \"impact if exploited\",\n\
+               \"attack_vector\": \"attack method\",\n\
+               \"proof_of_concept\": \"PoC code or command\",\n\
+               \"fix_suggestion\": \"specific fix instructions\",\n\
                \"fix_priority\": 1\n\
              }}\n\
            ],\n\
-           \"scan_summary\": \"전체 요약\",\n\
+           \"scan_summary\": \"overall summary\",\n\
            \"overall_risk\": \"Critical|High|Medium|Low|Info\",\n\
            \"passed\": false,\n\
-           \"executive_summary\": \"경영진용 한 줄 요약\"\n\
+           \"executive_summary\": \"one-line executive summary\"\n\
          }}",
         story.id, story.title,
         crate::utils::trunc(scan_results, 4000)
     )
 }
 
-// ─── 보안 리포트 Parsing ────────────────────────────────────────────────────────
+// ─── Security report parsing ───────────────────────────────────────────────────
 
 fn parse_security_report(
     json_text: &str,
@@ -202,22 +202,22 @@ fn parse_security_report(
     round: usize,
     report_id: &str,
 ) -> SecurityReport {
-    let mut report = SecurityReport::new(report_id, story_id, round, "프로젝트 소스코드");
+    let mut report = SecurityReport::new(report_id, story_id, round, "project source code");
 
     let v = match extract_json(json_text) {
         Some(v) => v,
         None => {
-            // JSON Parsing 실패 시 텍스트에서 패스 여부 추론
+            // JSON parsing failed — infer pass/fail from text
             let passed = json_text.to_uppercase().contains("NO VULNERABILITY")
                 || json_text.contains("\"passed\": true")
-                || json_text.contains("취약점 없음");
+                || json_text.contains("no vulnerabilities");
             report.passed = passed;
             report.summary = crate::utils::trunc(json_text, 500).to_string();
             return report;
         }
     };
 
-    // 취약점 Parsing
+    // Parse vulnerabilities
     if let Some(vulns) = v["vulnerabilities"].as_array() {
         for (i, vj) in vulns.iter().enumerate() {
             let severity = parse_severity(vj["severity"].as_str().unwrap_or("Medium"));
@@ -225,7 +225,7 @@ fn parse_security_report(
             let vid = vj["id"].as_str().unwrap_or(&format!("V-{}", i+1)).to_string();
             let title = vj["title"].as_str().unwrap_or("Unknown").to_string();
             let desc = vj["description"].as_str().unwrap_or("").to_string();
-            let fix = vj["fix_suggestion"].as_str().unwrap_or("코드 검토 필요").to_string();
+            let fix = vj["fix_suggestion"].as_str().unwrap_or("Code review required").to_string();
 
             let mut vuln = Vulnerability::new(&vid, &title, severity, owasp, &desc, &fix);
             vuln.file = vj["file"].as_str().map(|s| s.to_string());
@@ -246,14 +246,14 @@ fn parse_security_report(
     report
 }
 
-// ─── 해커 에이전트 메인 ──────────────────────────────────────────────────────
+// ─── Hacker agent main ──────────────────────────────────────────────────────
 
 pub struct HackerAgentOutput {
     pub report: SecurityReport,
     pub fix_instructions: String,
 }
 
-/// 단일 보안 스캔 라운드 실행
+/// Run a single security scan round
 pub async fn run_hacker_agent(
     client: &OllamaClient,
     story: &UserStory,
@@ -264,43 +264,43 @@ pub async fn run_hacker_agent(
 ) -> HackerAgentOutput {
     use crate::models::Message;
 
-    on_progress(&format!("🔒 HackerAgent [{}] 보안 스캔 시작 (라운드 {})...", story.id, round));
+    on_progress(&format!("🔒 HackerAgent [{}] security scan starting (round {})...", story.id, round));
 
-    // 1단계: 정적 스캐너 실행
-    on_progress("  🔍 정적 분석 도구 실행 중...");
+    // Step 1: run static scanners
+    on_progress("  🔍 Running static analysis tools...");
     let scan_results = run_static_scanners(project_path).await;
-    on_progress(&format!("  📊 스캐너 {}개 실행 완료", scan_results.len()));
+    on_progress(&format!("  📊 {} scanner(s) completed", scan_results.len()));
 
     let scan_text = scan_results.iter()
         .map(|r| format!("=== {} ===\n{}", r.tool, r.output))
         .collect::<Vec<_>>().join("\n\n");
 
-    // 2단계: AI 보안 분석
-    on_progress("  🧠 AI 보안 분석 중...");
+    // Step 2: AI security analysis
+    on_progress("  🧠 Running AI security analysis...");
     let system = hacker_system_prompt(story, &scan_text);
     let user_msg = format!(
-        "다음 프로젝트의 보안 취약점을 분석하세요.\n\
-         🔍 먼저 web_search로 이 유형의 프로젝트에 알려진 취약점 패턴을 검색하세요.\n\
-         📂 프로젝트 경로: {}\n\n\
-         구현 내용:\n{}\n\n\
-         정적 분석 결과:\n{}",
+        "Analyze the security vulnerabilities of the following project.\n\
+         🔍 First use web_search to find known vulnerability patterns for this type of project.\n\
+         📂 Project path: {}\n\n\
+         Implementation:\n{}\n\n\
+         Static analysis results:\n{}",
         project_path,
-        crate::utils::trunc(story.implementation.as_deref().unwrap_or("구현 없음"), 3000),
+        crate::utils::trunc(story.implementation.as_deref().unwrap_or("No implementation"), 3000),
         crate::utils::trunc(&scan_text, 2000),
     );
 
     let mut history = vec![
-        Message::system(&format!("모델: {}\n\n{}\n\n{}", client.model(),
+        Message::system(&format!("Model: {}\n\n{}\n\n{}", client.model(),
             crate::agent::tools::tool_descriptions(), system)),
         Message::user(&user_msg),
     ];
 
-    // HackerAgent 시작을 노드 허브에 알림
+    // Notify node hub that HackerAgent is starting
     let _ = hub.send(NodeMessage {
         from: "HackerAgent".to_string(),
         to: String::new(),
         msg_type: MsgType::Status,
-        content: format!("[{}] 보안 스캔 라운드 {} 시작", story.id, round),
+        content: format!("[{}] Security scan round {} starting", story.id, round),
         metadata: Default::default(),
     }).await;
 
@@ -310,7 +310,7 @@ pub async fn run_hacker_agent(
     for turn in 0..max_turns {
         let ai_text = match client.chat_stream(history.clone(), |_| {}).await {
             Ok(t) => t,
-            Err(e) => { ai_output = format!("AI 오류: {}", e); break; }
+            Err(e) => { ai_output = format!("AI error: {}", e); break; }
         };
 
         match crate::agent::chat::parse_response_pub(&ai_text) {
@@ -332,7 +332,7 @@ pub async fn run_hacker_agent(
                     let result = crate::agent::tools::dispatch_tool(
                         &crate::models::ToolCall { name: name.clone(), args }
                     ).await;
-                    results.push(format!("툴 '{}' 결과:\n{}", name, result.output));
+                    results.push(format!("Tool '{}' result:\n{}", name, result.output));
                 }
                 history.push(Message::tool(results.join("\n\n")));
                 if turn == max_turns - 1 { ai_output = results.join("\n\n"); }
@@ -341,20 +341,20 @@ pub async fn run_hacker_agent(
                 on_progress(&format!("  🔧 [HackerAgent] {}...", tc.name));
                 let result = crate::agent::tools::dispatch_tool(&tc).await;
                 history.push(Message::assistant(&ai_text));
-                history.push(Message::tool(format!("툴 '{}' 결과:\n{}", tc.name, result.output)));
+                history.push(Message::tool(format!("Tool '{}' result:\n{}", tc.name, result.output)));
                 if turn == max_turns - 1 { ai_output = result.output; }
             }
         }
     }
 
-    // 리포트 Parsing
+    // Parse report
     let report_id = format!("SEC-{}-R{}", story.id, round);
     let mut report = parse_security_report(&ai_output, &story.id, round, &report_id);
     report.scan_tools_used = scan_results.iter().map(|r| r.tool.clone()).collect();
 
     let fix_instructions = report.fix_instructions();
 
-    // 결과를 Developer 노드에 전달
+    // Forward results to Developer node
     let _ = hub.send(NodeMessage {
         from: "HackerAgent".to_string(),
         to: "Developer".to_string(),
@@ -363,18 +363,18 @@ pub async fn run_hacker_agent(
         metadata: Default::default(),
     }).await;
 
-    // QA 에이전트에도 공유
+    // Also share with QA agent
     let _ = hub.send(NodeMessage {
         from: "HackerAgent".to_string(),
         to: "QAEngineer".to_string(),
         msg_type: MsgType::Status,
-        content: format!("[{}] 보안 스캔 라운드 {} 완료 — 취약점 {}개",
+        content: format!("[{}] Security scan round {} complete — {} vulnerability(ies)",
             story.id, round, report.vulnerabilities.len()),
         metadata: Default::default(),
     }).await;
 
     on_progress(&format!(
-        "  {} 보안 스캔 완료 — {} (취약점 {}개, Critical {}개, High {}개)",
+        "  {} Security scan complete — {} ({} vulnerability(ies), {} Critical, {} High)",
         if report.passed { "✅" } else { "🚨" },
         report.overall_risk,
         report.vulnerabilities.len(),
@@ -385,7 +385,7 @@ pub async fn run_hacker_agent(
     HackerAgentOutput { report, fix_instructions }
 }
 
-// ─── 보안 수정 루프 ──────────────────────────────────────────────────────────
+// ─── Security fix loop ─────────────────────────────────────────────────────────
 
 const MAX_SECURITY_ROUNDS: usize = 5;
 
@@ -395,8 +395,8 @@ pub struct SecurityFixResult {
     pub approved: bool,
 }
 
-/// HackerAgent + Developer 보안 수정 루프
-/// QA와 HackerAgent 모두 OK할 때까지 반복
+/// HackerAgent + Developer security fix loop
+/// Repeats until both QA and HackerAgent approve
 pub async fn run_security_fix_loop(
     client: &OllamaClient,
     board: &AgileBoard,
@@ -410,24 +410,24 @@ pub async fn run_security_fix_loop(
 
     loop {
         round += 1;
-        on_progress(&format!("\n🔒 ═══ 보안 라운드 {}/{} ═══", round, MAX_SECURITY_ROUNDS));
+        on_progress(&format!("\n🔒 ═══ Security round {}/{} ═══", round, MAX_SECURITY_ROUNDS));
 
         let story = match board.get_story(story_id) {
             Some(s) => s,
             None => break,
         };
 
-        // HackerAgent 실행
+        // Run HackerAgent
         let hack_output = run_hacker_agent(
             client, &story, project_path, round, hub, &on_progress
         ).await;
 
-        // 리포트를 보드에 저장
+        // Save report to board
         board.update_story_field(story_id, "HackerAgent", |s| {
             let report_text = format!(
-                "=== 보안 리포트 라운드 {} ===\n{}", round, hack_output.report.render()
+                "=== Security report round {} ===\n{}", round, hack_output.report.render()
             );
-            // qa_report 필드에 보안 리포트 추가
+            // Append security report to qa_report field
             let prev = s.qa_report.take().unwrap_or_default();
             s.qa_report = Some(format!("{}\n\n{}", prev, report_text));
         }).ok();
@@ -435,32 +435,32 @@ pub async fn run_security_fix_loop(
         last_report = hack_output.report.clone();
 
         if hack_output.report.passed {
-            on_progress("✅ HackerAgent: 취약점 없음 — 보안 승인");
+            on_progress("✅ HackerAgent: No vulnerabilities — security approved");
             break;
         }
 
         if round >= MAX_SECURITY_ROUNDS {
-            on_progress(&format!("⚠️ 최대 보안 라운드({}) 도달 — 미수정 취약점 {}개 존재",
+            on_progress(&format!("⚠️ Maximum security rounds ({}) reached — {} unresolved vulnerability(ies)",
                 MAX_SECURITY_ROUNDS, hack_output.report.unfixed_count()));
             break;
         }
 
-        // Developer에게 수정 지시
-        on_progress(&format!("🔁 Developer에게 보안 수정 지시 ({}개 취약점)...",
+        // Send fix instructions to Developer
+        on_progress(&format!("🔁 Sending security fix instructions to Developer ({} vulnerability(ies))...",
             hack_output.report.unfixed_count()));
         on_progress(&format!("{}", hack_output.report.render()));
 
         let story = match board.get_story(story_id) { Some(s) => s, None => break };
 
-        // Developer 보안 수정 실행
+        // Run Developer security fix
         let dev_ctx = format!(
-            "## 보안 수정 지시서 (라운드 {})\n{}\n\n## 현재 구현\n{}",
+            "## Security fix instructions (round {})\n{}\n\n## Current implementation\n{}",
             round,
             hack_output.fix_instructions,
             crate::utils::trunc(story.implementation.as_deref().unwrap_or(""), 2000),
         );
 
-        on_progress(&format!("💻 Developer: 보안 취약점 수정 중 (라운드 {})...", round));
+        on_progress(&format!("💻 Developer: Fixing security vulnerabilities (round {})...", round));
         let dev_output = run_security_developer(
             client, &story, &dev_ctx, hub, &on_progress
         ).await;
@@ -469,7 +469,7 @@ pub async fn run_security_fix_loop(
             s.implementation = Some(dev_output.clone());
         }).ok();
 
-        on_progress(&format!("  ✍️  Developer 수정 완료 (라운드 {})", round));
+        on_progress(&format!("  ✍️  Developer fix complete (round {})", round));
     }
 
     SecurityFixResult {
@@ -479,7 +479,7 @@ pub async fn run_security_fix_loop(
     }
 }
 
-/// 보안 수정 전담 Developer 실행
+/// Run dedicated security-fix Developer
 async fn run_security_developer(
     client: &OllamaClient,
     story: &UserStory,
@@ -490,28 +490,28 @@ async fn run_security_developer(
     use crate::models::Message;
 
     let system = format!(
-        "모델: {}\n\n{}\n\n\
-         당신은 보안 수정 전문 개발자입니다.\n\
-         주어진 보안 취약점 리포트를 바탕으로 코드를 수정하세요.\n\n\
-         수정 원칙:\n\
-         - 모든 취약점을 OWASP 권장 방법으로 수정\n\
-         - Parameterized Query / Prepared Statement 사용 (SQL Injection)\n\
-         - 입력값 검증 및 인코딩 (XSS)\n\
-         - 최소 권한 원칙 적용\n\
-         - 시크릿은 환경변수 또는 Secret Manager로 이동\n\
-         - 보안 헤더 추가 (HSTS, CSP, X-Frame-Options)\n\
-         - 에러 메시지에서 민감 정보 제거\n\n\
-         수정 후 반드시:\n\
-         1. 빌드 확인\n\
-         2. 기존 테스트 통과 확인\n\
-         3. 수정된 취약점 목록 정리",
+        "Model: {}\n\n{}\n\n\
+         You are a developer specializing in security fixes.\n\
+         Fix the code based on the provided security vulnerability report.\n\n\
+         Fix principles:\n\
+         - Fix all vulnerabilities using OWASP-recommended methods\n\
+         - Use Parameterized Query / Prepared Statement (SQL Injection)\n\
+         - Validate and encode input (XSS)\n\
+         - Apply principle of least privilege\n\
+         - Move secrets to environment variables or Secret Manager\n\
+         - Add security headers (HSTS, CSP, X-Frame-Options)\n\
+         - Remove sensitive information from error messages\n\n\
+         After fixing, be sure to:\n\
+         1. Verify build succeeds\n\
+         2. Confirm existing tests pass\n\
+         3. List the vulnerabilities that were fixed",
         client.model(),
         crate::agent::tools::tool_descriptions(),
     );
 
     let user_msg = format!(
-        "다음 보안 취약점을 수정하세요:\n\n{}\n\n\
-         수정 전 web_search로 각 취약점의 최신 수정 방법을 검색하세요.",
+        "Fix the following security vulnerabilities:\n\n{}\n\n\
+         Before fixing, use web_search to find the latest remediation methods for each vulnerability.",
         security_ctx
     );
 
@@ -523,7 +523,7 @@ async fn run_security_developer(
     let _ = hub.send(NodeMessage {
         from: "Developer".to_string(), to: "HackerAgent".to_string(),
         msg_type: MsgType::Status,
-        content: format!("[{}] 보안 수정 작업 시작", story.id),
+        content: format!("[{}] Security fix work starting", story.id),
         metadata: Default::default(),
     }).await;
 
@@ -532,7 +532,7 @@ async fn run_security_developer(
     for turn in 0..20 {
         let ai_text = match client.chat_stream(history.clone(), |_| {}).await {
             Ok(t) => t,
-            Err(e) => return format!("오류: {}", e),
+            Err(e) => return format!("Error: {}", e),
         };
         match crate::agent::chat::parse_response_pub(&ai_text) {
             crate::models::AgentResponse::Exit | crate::models::AgentResponse::Text(_) => {
@@ -553,7 +553,7 @@ async fn run_security_developer(
                     let result = crate::agent::tools::dispatch_tool(
                         &crate::models::ToolCall { name: name.clone(), args }
                     ).await;
-                    results.push(format!("툴 '{}' 결과:\n{}", name, result.output));
+                    results.push(format!("Tool '{}' result:\n{}", name, result.output));
                 }
                 history.push(Message::tool(results.join("\n\n")));
                 if turn == 19 { final_output = results.join("\n\n"); }
@@ -562,7 +562,7 @@ async fn run_security_developer(
                 on_progress(&format!("  🔧 [SecDev] {}...", tc.name));
                 let result = crate::agent::tools::dispatch_tool(&tc).await;
                 history.push(Message::assistant(&ai_text));
-                history.push(Message::tool(format!("툴 '{}' 결과:\n{}", tc.name, result.output)));
+                history.push(Message::tool(format!("Tool '{}' result:\n{}", tc.name, result.output)));
                 if turn == 19 { final_output = result.output; }
             }
         }

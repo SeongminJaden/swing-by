@@ -4,15 +4,15 @@ use walkdir::WalkDir;
 
 const MAX_RESULTS: usize = 100;
 
-/// 파일 내용 검색 (grep)
-/// pattern: 정규식 (앞에 -i 붙이면 대소문자 무시)
-/// path: 검색 경로 (파일 또는 디렉토리)
+/// Search file contents (grep)
+/// pattern: regex (prefix with -i for case-insensitive)
+/// path: search path (file or directory)
 pub fn grep_files(pattern: &str, path: &str) -> Result<Vec<String>> {
-    // "-i <pattern>" 형식 지원
+    // support "-i <pattern>" for case-insensitive search
     let (case_insensitive, pat) = if let Some(p) = pattern.strip_prefix("-i ") {
         (true, p)
     } else if pattern.starts_with("(?i)") {
-        (false, pattern) // 이미 (?i) 포함
+        (false, pattern) // already has (?i)
     } else {
         (false, pattern)
     };
@@ -24,7 +24,7 @@ pub fn grep_files(pattern: &str, path: &str) -> Result<Vec<String>> {
     };
 
     let regex = Regex::new(&regex_str)
-        .map_err(|e| anyhow::anyhow!("잘못된 정규식 '{}': {}", pat, e))?;
+        .map_err(|e| anyhow::anyhow!("Invalid regex '{}': {}", pat, e))?;
 
     let target = if path.is_empty() || path == "." { "." } else { path };
     let mut results = Vec::new();
@@ -42,7 +42,7 @@ pub fn grep_files(pattern: &str, path: &str) -> Result<Vec<String>> {
             .filter(|e| e.file_type().is_file())
         {
             if results.len() >= MAX_RESULTS {
-                results.push(format!("... ({}개 이상, 출력 제한됨)", MAX_RESULTS));
+                results.push(format!("... ({} or more results, output truncated)", MAX_RESULTS));
                 break;
             }
             let p = entry.path().to_str().unwrap_or("");
@@ -132,7 +132,7 @@ mod tests {
         let f = temp_file_with("test", ".txt");
         let path = f.path().to_str().unwrap();
         let err = grep_files("[invalid", path).unwrap_err();
-        assert!(err.to_string().contains("잘못된 정규식"));
+        assert!(err.to_string().contains("Invalid regex"));
     }
 
     #[test]

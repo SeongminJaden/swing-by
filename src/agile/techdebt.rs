@@ -2,7 +2,7 @@
 //!
 //! Systematically evaluates and prioritizes technical debt in the codebase.
 //!
-//! 흐름:
+//! Flow:
 //!   Architect    → Architecture/design level debt analysis
 //!   Developer    → Code level debt analysis (complexity, duplication, missing tests)
 //!   Reviewer     → Quality/coverage debt
@@ -28,32 +28,32 @@ pub struct DebtItem {
     pub file: Option<String>,
     pub estimated_days: f32,
     pub priority: String,        // High/Medium/Low
-    pub impact: String,          // 방치 시 영향
+    pub impact: String,          // impact if ignored
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum DebtCategory {
-    Architecture,    // 잘못된 설계, 과도한 결합
-    Code,            // 복잡도, 중복, 긴 함수
-    Testing,         // 테스트 부재, 낮은 커버리지
-    Documentation,   // 문서 없음, 오래된 주석
-    Dependencies,    // 오래된 의존성, 취약한 패키지
-    Security,        // 보안 설정 부채
-    Performance,     // 알려진 성능 문제
-    Infrastructure,  // CI/CD, 배포 프로세스 부채
+    Architecture,    // bad design, excessive coupling
+    Code,            // complexity, duplication, long functions
+    Testing,         // missing tests, low coverage
+    Documentation,   // no documentation, stale comments
+    Dependencies,    // outdated dependencies, vulnerable packages
+    Security,        // security configuration debt
+    Performance,     // known performance issues
+    Infrastructure,  // CI/CD, deployment process debt
 }
 
 impl std::fmt::Display for DebtCategory {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s = match self {
-            DebtCategory::Architecture   => "🏛️  아키텍처",
-            DebtCategory::Code           => "💻 코드 품질",
-            DebtCategory::Testing        => "🔬 테스트",
-            DebtCategory::Documentation  => "📝 문서화",
-            DebtCategory::Dependencies   => "📦 의존성",
-            DebtCategory::Security       => "🔒 보안",
-            DebtCategory::Performance    => "⚡ 성능",
-            DebtCategory::Infrastructure => "🚀 인프라",
+            DebtCategory::Architecture   => "🏛️  Architecture",
+            DebtCategory::Code           => "💻 Code Quality",
+            DebtCategory::Testing        => "🔬 Testing",
+            DebtCategory::Documentation  => "📝 Documentation",
+            DebtCategory::Dependencies   => "📦 Dependencies",
+            DebtCategory::Security       => "🔒 Security",
+            DebtCategory::Performance    => "⚡ Performance",
+            DebtCategory::Infrastructure => "🚀 Infrastructure",
         };
         write!(f, "{}", s)
     }
@@ -67,7 +67,7 @@ pub struct TechDebtReport {
     pub total_estimated_days: f32,
     pub repayment_plan: Vec<String>,
     pub recommended_priority: Vec<String>,
-    pub debt_ratio: String,           // 추정 부채 비율 (기술 부채 / 전체 개발 비용)
+    pub debt_ratio: String,           // estimated debt ratio (tech debt / total dev cost)
 }
 
 impl TechDebtReport {
@@ -75,19 +75,19 @@ impl TechDebtReport {
         let by_category = self.grouped_by_category();
         let mut out = vec![
             format!("\n╔══════════════════════════════════════════════════╗"),
-            format!("║  📊 기술 부채 분석 보고서                         ║"),
+            format!("║  📊 Technical Debt Analysis Report                ║"),
             format!("╚══════════════════════════════════════════════════╝"),
-            format!("경로: {}  |  총 추정: {}일  |  부채 비율: {}",
+            format!("Path: {}  |  Total estimate: {} day(s)  |  Debt ratio: {}",
                 self.project_path, self.total_estimated_days, self.debt_ratio),
         ];
 
         for (cat, items) in &by_category {
             let days: f32 = items.iter().map(|i| i.estimated_days).sum();
-            out.push(format!("\n── {} ({} 항목, {}일) ──", cat, items.len(), days));
+            out.push(format!("\n── {} ({} item(s), {} day(s)) ──", cat, items.len(), days));
             for item in items {
                 out.push(format!("  [{:>4}] [{}] {}{}",
                     item.priority,
-                    format!("{:.1}일", item.estimated_days),
+                    format!("{:.1}d", item.estimated_days),
                     item.title,
                     item.file.as_deref().map(|f| format!(" ({})", f)).unwrap_or_default(),
                 ));
@@ -95,14 +95,14 @@ impl TechDebtReport {
         }
 
         if !self.recommended_priority.is_empty() {
-            out.push("\n── 우선 해결 순서 ──".to_string());
+            out.push("\n── Priority resolution order ──".to_string());
             for (i, p) in self.recommended_priority.iter().enumerate() {
                 out.push(format!("  {}. {}", i+1, p));
             }
         }
 
         if !self.repayment_plan.is_empty() {
-            out.push("\n── 상환 계획 ──".to_string());
+            out.push("\n── Repayment plan ──".to_string());
             for step in &self.repayment_plan {
                 out.push(format!("  • {}", step));
             }
@@ -140,84 +140,84 @@ pub async fn run_techdebt_analysis(
     on_progress: impl Fn(&str) + Clone,
 ) -> Result<TechDebtReport> {
     let hub = NodeHub::new();
-    on_progress(&format!("\n📊 ══ 기술 부채 분석 시작: {} ══", project_path));
+    on_progress(&format!("\n📊 ══ Tech debt analysis starting: {} ══", project_path));
 
-    // 분석용 임시 스토리
+    // Temporary story for analysis
     let mut story = UserStory::new(
         "TD-ANALYSIS",
-        &format!("[기술 부채 분석] {}", project_path),
-        &format!("프로젝트 {} 의 기술 부채를 분석합니다.", project_path),
+        &format!("[Tech Debt Analysis] {}", project_path),
+        &format!("Analyzing technical debt of project {}.", project_path),
         Priority::High, 5,
     );
-    story.add_acceptance_criteria("모든 카테고리 부채 식별");
-    story.add_acceptance_criteria("우선순위 및 상환 계획 수립");
+    story.add_acceptance_criteria("Identify debt across all categories");
+    story.add_acceptance_criteria("Establish priority and repayment plan");
 
     let base_ctx = format!(
-        "## 분석 대상\n경로: {}\n\n\
-         프로젝트 파일을 직접 읽고(read_file, glob_files, grep_files) 실제 코드를 분석하세요.\n\
-         web_search로 해당 기술의 현재 베스트 프랙티스와 비교하세요.",
+        "## Analysis Target\nPath: {}\n\n\
+         Read project files directly (read_file, glob_files, grep_files) and analyze the actual code.\n\
+         Use web_search to compare against current best practices for the technology.",
         project_path
     );
 
-    // ── 1단계: Architect — 구조/설계 부채 ──────────────────────────────────
-    print_td_divider("1/4 · Architect — 구조/설계 부채");
-    on_progress("🏛️  Architect: 아키텍처 부채 분석 중...");
+    // ── Step 1: Architect — architecture/design debt ───────────────────────────
+    print_td_divider("1/4 · Architect — Architecture/Design Debt");
+    on_progress("🏛️  Architect: Analyzing architecture debt...");
 
-    let arch_ctx = format!("{}\n\n다음을 분석하세요:\n\
-        - 모듈 간 결합도 (순환 의존성, 과도한 결합)\n\
-        - SOLID 원칙 위반\n\
-        - 도메인 로직 누수\n\
-        - 잘못된 추상화 레벨\n\
+    let arch_ctx = format!("{}\n\nAnalyze the following:\n\
+        - Module coupling (circular dependencies, excessive coupling)\n\
+        - SOLID principle violations\n\
+        - Domain logic leakage\n\
+        - Incorrect abstraction levels\n\
         JSON: {{\"debt_items\": [{{\"category\": \"Architecture\", \"title\": \"...\", \
         \"description\": \"...\", \"file\": \"...\", \"estimated_days\": 2.0, \"priority\": \"High\", \"impact\": \"...\"}}]}}",
         base_ctx);
     let arch_output = run_agile_agent(client, AgileRole::Architect, &story, &arch_ctx, &hub, &on_progress).await;
 
-    // ── 2단계: Developer — 코드 수준 부채 ───────────────────────────────────
-    print_td_divider("2/4 · Developer — 코드 품질 부채");
-    on_progress("💻 Developer: 코드 품질 부채 분석 중...");
+    // ── Step 2: Developer — code quality debt ───────────────────────────────────
+    print_td_divider("2/4 · Developer — Code Quality Debt");
+    on_progress("💻 Developer: Analyzing code quality debt...");
 
-    let dev_ctx = format!("{}\n\n다음을 분석하세요:\n\
-        - 복잡도 높은 함수 (McCabe 복잡도 > 10)\n\
-        - 코드 중복 (DRY 위반)\n\
-        - 매직 넘버/문자열\n\
-        - 에러 처리 부재\n\
-        - 테스트 없는 핵심 로직\n\
-        - 오래된 의존성 (cargo audit 등)\n\
+    let dev_ctx = format!("{}\n\nAnalyze the following:\n\
+        - High-complexity functions (McCabe complexity > 10)\n\
+        - Code duplication (DRY violations)\n\
+        - Magic numbers/strings\n\
+        - Missing error handling\n\
+        - Core logic without tests\n\
+        - Outdated dependencies (cargo audit, etc.)\n\
         JSON: {{\"debt_items\": [...]}}",
         base_ctx);
     let dev_output = run_agile_agent(client, AgileRole::Developer, &story, &dev_ctx, &hub, &on_progress).await;
 
-    // ── 3단계: Reviewer — 품질/테스트 부채 ──────────────────────────────────
-    print_td_divider("3/4 · Reviewer — 품질/테스트 부채");
-    on_progress("👁️  Reviewer: 테스트·문서 부채 분석 중...");
+    // ── Step 3: Reviewer — quality/test debt ────────────────────────────────────
+    print_td_divider("3/4 · Reviewer — Quality/Test Debt");
+    on_progress("👁️  Reviewer: Analyzing test/documentation debt...");
 
-    let rev_ctx = format!("{}\n\n다음을 분석하세요:\n\
-        - 테스트 커버리지 (80% 미만 영역)\n\
-        - 통합 테스트 부재\n\
-        - 문서화 누락 (README, API 문서)\n\
-        - 성능 회귀 테스트 부재\n\
-        - CI/CD 파이프라인 갭\n\
+    let rev_ctx = format!("{}\n\nAnalyze the following:\n\
+        - Test coverage (areas below 80%)\n\
+        - Missing integration tests\n\
+        - Missing documentation (README, API docs)\n\
+        - Missing performance regression tests\n\
+        - CI/CD pipeline gaps\n\
         JSON: {{\"debt_items\": [...]}}",
         base_ctx);
     let rev_output = run_agile_agent(client, AgileRole::Reviewer, &story, &rev_ctx, &hub, &on_progress).await;
 
-    // ── 4단계: TechLead — 종합 + 우선순위 ──────────────────────────────────
-    print_td_divider("4/4 · TechLead — 종합 + 상환 계획");
-    on_progress("🎯 TechLead: 기술 부채 종합 및 상환 계획 수립 중...");
+    // ── Step 4: TechLead — synthesis + prioritization ────────────────────────────
+    print_td_divider("4/4 · TechLead — Synthesis + Repayment Plan");
+    on_progress("🎯 TechLead: Synthesizing tech debt and creating repayment plan...");
 
     let tl_ctx = format!(
-        "다음 세 가지 분석 결과를 종합하여 우선순위와 상환 계획을 수립하세요.\n\n\
-         아키텍처 분석:\n{}\n\n\
-         코드 분석:\n{}\n\n\
-         품질 분석:\n{}\n\n\
-         JSON 출력:\n\
+        "Synthesize the following three analysis results into a prioritized repayment plan.\n\n\
+         Architecture analysis:\n{}\n\n\
+         Code analysis:\n{}\n\n\
+         Quality analysis:\n{}\n\n\
+         JSON output:\n\
          {{\n\
-           \"debt_items\": [...모든 항목 통합...],\n\
+           \"debt_items\": [...all items merged...],\n\
            \"total_estimated_days\": 15.5,\n\
-           \"debt_ratio\": \"기술 부채 비율 설명\",\n\
-           \"recommended_priority\": [\"1순위 항목\", \"2순위\"],\n\
-           \"repayment_plan\": [\"스프린트 1: ...\", \"스프린트 2: ...\"]\n\
+           \"debt_ratio\": \"tech debt ratio description\",\n\
+           \"recommended_priority\": [\"top priority\", \"second priority\"],\n\
+           \"repayment_plan\": [\"Sprint 1: ...\", \"Sprint 2: ...\"]\n\
          }}",
         crate::utils::trunc(&arch_output, 1000),
         crate::utils::trunc(&dev_output, 1000),
@@ -261,7 +261,7 @@ fn parse_techdebt_report(text: &str, project_path: &str) -> TechDebtReport {
                 .unwrap_or(total_days as f64) as f32,
             repayment_plan: str_array(&v["repayment_plan"]),
             recommended_priority: str_array(&v["recommended_priority"]),
-            debt_ratio: v["debt_ratio"].as_str().unwrap_or("측정 불가").to_string(),
+            debt_ratio: v["debt_ratio"].as_str().unwrap_or("unmeasurable").to_string(),
             debt_items,
         }
     } else {
@@ -270,23 +270,23 @@ fn parse_techdebt_report(text: &str, project_path: &str) -> TechDebtReport {
             analyzed_at: now,
             debt_items: Vec::new(),
             total_estimated_days: 0.0,
-            repayment_plan: vec!["수동 분석 필요".to_string()],
+            repayment_plan: vec!["Manual analysis required".to_string()],
             recommended_priority: Vec::new(),
-            debt_ratio: "측정 불가".to_string(),
+            debt_ratio: "unmeasurable".to_string(),
         }
     }
 }
 
 fn parse_category(s: &str) -> DebtCategory {
     match s.to_lowercase().as_str() {
-        "architecture" | "아키텍처" => DebtCategory::Architecture,
-        "code" | "코드" | "code quality" => DebtCategory::Code,
-        "testing" | "테스트" => DebtCategory::Testing,
-        "documentation" | "문서" => DebtCategory::Documentation,
-        "dependencies" | "의존성" => DebtCategory::Dependencies,
-        "security" | "보안" => DebtCategory::Security,
-        "performance" | "성능" => DebtCategory::Performance,
-        "infrastructure" | "인프라" => DebtCategory::Infrastructure,
+        "architecture" => DebtCategory::Architecture,
+        "code" | "code quality" => DebtCategory::Code,
+        "testing" => DebtCategory::Testing,
+        "documentation" => DebtCategory::Documentation,
+        "dependencies" => DebtCategory::Dependencies,
+        "security" => DebtCategory::Security,
+        "performance" => DebtCategory::Performance,
+        "infrastructure" => DebtCategory::Infrastructure,
         _ => DebtCategory::Code,
     }
 }
@@ -336,14 +336,14 @@ mod tests {
 
     #[test]
     fn test_debt_category_display() {
-        assert!(DebtCategory::Architecture.to_string().contains("아키텍처"));
-        assert!(DebtCategory::Security.to_string().contains("보안"));
-        assert!(DebtCategory::Testing.to_string().contains("테스트"));
+        assert!(DebtCategory::Architecture.to_string().contains("Architecture"));
+        assert!(DebtCategory::Security.to_string().contains("Security"));
+        assert!(DebtCategory::Testing.to_string().contains("Testing"));
     }
 
     #[test]
     fn test_extract_json_from_code_fence() {
-        let text = "설명\n```json\n{\"key\": \"value\"}\n```\n끝";
+        let text = "description\n```json\n{\"key\": \"value\"}\n```\nend";
         let val = extract_json(text);
         assert!(val.is_some());
         assert_eq!(val.unwrap()["key"], "value");
@@ -374,7 +374,7 @@ mod tests {
             debt_ratio: "0%".to_string(),
         };
         let rendered = report.render();
-        assert!(rendered.contains("기술 부채 분석 보고서"));
+        assert!(rendered.contains("Technical Debt Analysis Report"));
     }
 
     #[test]

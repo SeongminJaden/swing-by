@@ -1,17 +1,17 @@
-//! User story 및 태스크 정의
+//! User story and task definitions
 //!
-//! Agile 개발의 핵심 단위:
+//! Core units of Agile development:
 //!   Epic → UserStory → Task
 //!
-//! 각 스토리는 수락 기준(Acceptance Criteria)과
-//! QA 체크리스트를 포함합니다.
+//! Each story includes Acceptance Criteria and
+//! a QA checklist.
 
 use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-// ─── 우선순위 ─────────────────────────────────────────────────────────────────
+// ─── Priority ─────────────────────────────────────────────────────────────────
 
-// 선언 순서가 Ord의 크기 순서 — Low(0) < Medium(1) < High(2) < Critical(3)
+// Declaration order is Ord magnitude — Low(0) < Medium(1) < High(2) < Critical(3)
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Priority {
     Low,
@@ -45,32 +45,32 @@ impl std::fmt::Display for Priority {
     }
 }
 
-// ─── 칸반 컬럼 (스토리 상태) ─────────────────────────────────────────────────
+// ─── Kanban columns (story status) ─────────────────────────────────────────────────
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum StoryStatus {
-    // ── 준비 단계 ─────────────────
+    // ── Preparation stage ─────────────────
     Backlog,
     Todo,
-    // ── 기획/UX 단계 ──────────────
-    UXReview,          // BA + UX 검토 중
-    // ── 개발 단계 ─────────────────
+    // ── Planning/UX stage ──────────────
+    UXReview,          // BA + UX review in progress
+    // ── Development stage ─────────────────
     InProgress,
-    Review,            // 코드 리뷰 대기
-    QA,                // QA 검증 중
-    QAFailed,          // QA 실패 → InProgress로 돌아감
-    // ── 보안 감사 ─────────────────
-    SecurityReview,    // HackerAgent 보안 감사 중
-    // ── 승인/배포 준비 ────────────
-    TechLeadReview,    // TechLead 게이트 리뷰
-    Documentation,     // TechnicalWriter 문서화 중
-    DevOpsSetup,       // DevOpsEngineer CI/CD 설정 중
-    SRESetup,          // SRE 모니터링/런북 설정 중
-    ReleasePrep,       // ReleaseManager 릴리즈 준비 중
-    // ── 완료 ──────────────────────
-    Released,          // 릴리즈 완료
-    Done,              // 빠른 완료 (선택 단계 스킵)
-    Blocked(String),   // 블로킹 사유
+    Review,            // Awaiting code review
+    QA,                // QA verification in progress
+    QAFailed,          // QA failed → returns to InProgress
+    // ── Security audit ─────────────────
+    SecurityReview,    // HackerAgent security audit in progress
+    // ── Approval/deployment preparation ────────────
+    TechLeadReview,    // TechLead gate review
+    Documentation,     // TechnicalWriter documentation in progress
+    DevOpsSetup,       // DevOpsEngineer CI/CD setup in progress
+    SRESetup,          // SRE monitoring/runbook setup in progress
+    ReleasePrep,       // ReleaseManager release preparation in progress
+    // ── Done ──────────────────────
+    Released,          // Release complete
+    Done,              // Fast completion (optional stages skipped)
+    Blocked(String),   // Blocking reason
 }
 
 impl StoryStatus {
@@ -119,23 +119,23 @@ impl StoryStatus {
     }
 }
 
-// ─── 태스크 (스토리 하위 항목) ────────────────────────────────────────────────
+// ─── Task (sub-item of story) ────────────────────────────────────────────────
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Task {
     pub id: String,
     pub title: String,
-    pub assigned_to: Option<String>,  // 에이전트 역할 이름
+    pub assigned_to: Option<String>,  // agent role name
     pub done: bool,
     pub notes: String,
 }
 
-// ─── QA 체크리스트 항목 ───────────────────────────────────────────────────────
+// ─── QA checklist item ───────────────────────────────────────────────────────
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QACheck {
     pub description: String,
-    pub passed: Option<bool>,   // None = 미검증
+    pub passed: Option<bool>,   // None = not yet verified
     pub notes: String,
 }
 
@@ -175,16 +175,16 @@ pub struct UserStory {
     pub sprint_id: Option<String>,
     pub created_at: u64,
     pub updated_at: u64,
-    // 에이전트 산출물 — 기획/UX
+    // Agent outputs — planning/UX
     pub business_analysis: Option<String>,
     pub ux_design: Option<String>,
-    // 에이전트 산출물 — 개발
+    // Agent outputs — development
     pub plan: Option<String>,
     pub implementation: Option<String>,
     pub review_feedback: Option<String>,
     pub qa_report: Option<String>,
     pub bug_reports: Vec<BugReport>,
-    // 에이전트 산출물 — 배포/운영
+    // Agent outputs — deployment/operations
     pub tech_lead_review: Option<String>,
     pub devops_artifacts: Option<String>,
     pub docs: Option<String>,
@@ -235,31 +235,31 @@ impl UserStory {
             .unwrap_or(0);
     }
 
-    /// 수락 기준 추가
+    /// Add acceptance criteria
     pub fn add_acceptance_criteria(&mut self, criteria: &str) -> &mut Self {
         self.acceptance_criteria.push(criteria.to_string());
         self
     }
 
-    /// QA 체크리스트 항목 추가
+    /// Add QA checklist item
     pub fn add_qa_check(&mut self, description: &str) -> &mut Self {
         self.qa_checks.push(QACheck::new(description));
         self
     }
 
-    /// QA 통과 여부 (모든 체크 통과 시 true)
+    /// Whether QA passed (true if all checks pass)
     pub fn qa_passed(&self) -> bool {
         if self.qa_checks.is_empty() { return false; }
         self.qa_checks.iter().all(|c| c.passed == Some(true))
     }
 
-    /// 완료된 태스크 수 / 전체 태스크 수
+    /// Completed tasks / total tasks
     pub fn task_progress(&self) -> (usize, usize) {
         let done = self.tasks.iter().filter(|t| t.done).count();
         (done, self.tasks.len())
     }
 
-    /// 간단한 요약 출력
+    /// Print brief summary
     pub fn summary(&self) -> String {
         let (done, total) = self.task_progress();
         let qa_ok = if self.qa_checks.is_empty() {
@@ -269,7 +269,7 @@ impl UserStory {
             format!(" QA:{}/{}", passed, self.qa_checks.len())
         };
         format!(
-            "[{}] {} {} {} ({} pts, {}/{}태스크{})",
+            "[{}] {} {} {} ({} pts, {}/{}tasks{})",
             self.id,
             self.priority.icon(),
             self.status.column_name(),
@@ -323,7 +323,7 @@ mod tests {
 
     #[test]
     fn story_creation() {
-        let story = UserStory::new("US-1", "로그인 기능", "사용자가 로그인할 수 있어야 한다", Priority::High, 5);
+        let story = UserStory::new("US-1", "Login feature", "User must be able to log in", Priority::High, 5);
         assert_eq!(story.id, "US-1");
         assert_eq!(story.story_points, 5);
         assert!(matches!(story.status, StoryStatus::Backlog));
@@ -332,8 +332,8 @@ mod tests {
     #[test]
     fn qa_passes_when_all_checks_pass() {
         let mut story = UserStory::new("US-2", "test", "desc", Priority::Low, 1);
-        story.add_qa_check("단위 테스트 통과");
-        story.add_qa_check("통합 테스트 통과");
+        story.add_qa_check("Unit tests pass");
+        story.add_qa_check("Integration tests pass");
         story.qa_checks[0].passed = Some(true);
         story.qa_checks[1].passed = Some(true);
         assert!(story.qa_passed());
@@ -342,8 +342,8 @@ mod tests {
     #[test]
     fn qa_fails_when_any_check_fails() {
         let mut story = UserStory::new("US-3", "test", "desc", Priority::Low, 1);
-        story.add_qa_check("테스트 A");
-        story.add_qa_check("테스트 B");
+        story.add_qa_check("Test A");
+        story.add_qa_check("Test B");
         story.qa_checks[0].passed = Some(true);
         story.qa_checks[1].passed = Some(false);
         assert!(!story.qa_passed());

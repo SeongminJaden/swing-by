@@ -23,8 +23,8 @@ pub struct SubTask {
     pub id: String,
     pub title: String,
     pub description: String,
-    pub role: String,     // 담당 역할 힌트
-    pub priority: u8,     // 1=높음
+    pub role: String,     // assigned role hint
+    pub priority: u8,     // 1=high
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -49,11 +49,11 @@ impl CoordinatorResult {
     pub fn render(&self) -> String {
         let mut out = vec![
             format!("\n╔══════════════════════════════════════════════════╗"),
-            format!("║  🤝 Coordinator 결과                              ║"),
+            format!("║  🤝 Coordinator Result                            ║"),
             format!("╚══════════════════════════════════════════════════╝"),
-            format!("태스크: {}", crate::utils::trunc(&self.task, 60)),
-            format!("워커: {} 명 병렬 실행\n", self.total_workers),
-            format!("── 서브태스크 결과 ──"),
+            format!("Task: {}", crate::utils::trunc(&self.task, 60)),
+            format!("Workers: {} running in parallel\n", self.total_workers),
+            format!("── Subtask results ──"),
         ];
 
         for r in &self.worker_results {
@@ -63,7 +63,7 @@ impl CoordinatorResult {
                 crate::utils::trunc(&r.output, 100)));
         }
 
-        out.push(format!("\n── 종합 결과 ──"));
+        out.push(format!("\n── Synthesis ──"));
         out.push(self.synthesis.clone());
         out.push(String::new());
         out.join("\n")
@@ -79,27 +79,27 @@ pub async fn run_coordinator(
     task: &str,
     on_progress: impl Fn(&str) + Clone + Send + 'static,
 ) -> Result<CoordinatorResult> {
-    on_progress(&format!("\n🤝 ══ Coordinator 시작 ══\n태스크: {}", crate::utils::trunc(task, 80)));
+    on_progress(&format!("\n🤝 ══ Coordinator starting ══\nTask: {}", crate::utils::trunc(task, 80)));
 
-    // ── 1단계: 리더가 태스크를 서브태스크로 분해 ────────────────────────────
-    on_progress("🎯 리더: 태스크 분석 및 서브태스크 분해 중...");
+    // ── Step 1: leader decomposes task into subtasks ─────────────────────────
+    on_progress("🎯 Leader: analyzing task and decomposing into subtasks...");
 
     let decompose_prompt = format!(
-        "당신은 리더 에이전트입니다. 다음 태스크를 병렬로 처리할 수 있는 독립적인 서브태스크로 분해하세요.\n\
-         각 서브태스크는 독립적이어야 하며 (순서 의존성 없음), 3~{} 개로 나누세요.\n\n\
-         태스크: {}\n\n\
-         JSON 출력:\n\
+        "You are the leader agent. Decompose the following task into independent subtasks that can be processed in parallel.\n\
+         Each subtask must be independent (no ordering dependencies). Create 3–{} subtasks.\n\n\
+         Task: {}\n\n\
+         JSON output:\n\
          [{{\"id\": \"ST-1\", \"title\": \"...\", \"description\": \"...\", \"role\": \"Developer\", \"priority\": 1}}, ...]",
         MAX_PARALLEL_WORKERS, task
     );
 
-    let system = format!("모델: {}\n\n당신은 복잡한 태스크를 병렬 서브태스크로 분해하는 전문 Coordinator입니다.", client.model());
+    let system = format!("Model: {}\n\nYou are an expert Coordinator who decomposes complex tasks into parallel subtasks.", client.model());
     let decompose_output = run_agent_simple(client, &system, &decompose_prompt, 3, &on_progress).await;
 
     let subtasks = parse_subtasks(&decompose_output);
     if subtasks.is_empty() {
         // Fall back to single task on decomposition failure
-        on_progress("⚠️ 서브태스크 분해 실패 — 단일 실행으로 대체");
+        on_progress("⚠️ Subtask decomposition failed — falling back to single execution");
         let output = run_agent_simple(client, &system, task, 5, &on_progress).await;
         return Ok(CoordinatorResult {
             task: task.to_string(),
@@ -112,19 +112,19 @@ pub async fn run_coordinator(
             }],
             synthesis: output,
             total_workers: 1,
-            elapsed_hint: "단일 실행".to_string(),
+            elapsed_hint: "single execution".to_string(),
         });
     }
 
-    on_progress(&format!("✅ 서브태스크 {} 개 생성", subtasks.len()));
+    on_progress(&format!("✅ {} subtask(s) created", subtasks.len()));
     for st in &subtasks {
-        on_progress(&format!("  📋 [{}] {} (담당: {})", st.id, st.title, st.role));
+        on_progress(&format!("  📋 [{}] {} (role: {})", st.id, st.title, st.role));
     }
 
-    // ── 2단계: 워커 병렬 실행 ────────────────────────────────────────────────
-    on_progress(&format!("\n⚡ {} 개 워커 병렬 실행 시작...", subtasks.len()));
+    // ── Step 2: run workers in parallel ───────────────────────────────────────
+    on_progress(&format!("\n⚡ Starting {} worker(s) in parallel...", subtasks.len()));
 
-    // Arc로 공유 (tokio::spawn은 'static 요구)
+    // Share via Arc (tokio::spawn requires 'static)
     use std::sync::Arc;
     let client_arc = Arc::new(OllamaClient::new(
         std::env::var("OLLAMA_API_URL").unwrap_or_else(|_| "http://localhost:11434".to_string()),
@@ -140,23 +140,23 @@ pub async fn run_coordinator(
         let tx_clone = tx.clone();
 
         tokio::spawn(async move {
-            let _ = tx_clone.send(format!("  🔨 워커 [{}] {} 시작...", st_clone.id, st_clone.title));
+            let _ = tx_clone.send(format!("  🔨 Worker [{}] {} starting...", st_clone.id, st_clone.title));
 
             let worker_system = format!(
-                "모델: {}\n\n당신은 {} 역할의 전문가입니다. 주어진 태스크를 완전하게 처리하세요.",
+                "Model: {}\n\nYou are an expert in the {} role. Complete the given task thoroughly.",
                 client_clone.model(), st_clone.role
             );
             let worker_prompt = format!(
-                "## 서브태스크 [{}]: {}\n\n{}\n\n최대한 구체적이고 실행 가능한 결과를 제공하세요.",
+                "## Subtask [{}]: {}\n\n{}\n\nProvide results that are as specific and actionable as possible.",
                 st_clone.id, st_clone.title, st_clone.description
             );
 
             let tx2 = tx_clone.clone();
             let output = run_agent_simple(&client_clone, &worker_system, &worker_prompt, 8,
                 &move |msg: &str| { let _ = tx2.send(msg.to_string()); }).await;
-            let success = !output.is_empty() && !output.starts_with("오류:");
+            let success = !output.is_empty() && !output.starts_with("Error:");
 
-            let _ = tx_clone.send(format!("  {} 워커 [{}] 완료",
+            let _ = tx_clone.send(format!("  {} Worker [{}] complete",
                 if success { "✅" } else { "⚠️" }, st_clone.id));
 
             WorkerResult {
@@ -181,7 +181,7 @@ pub async fn run_coordinator(
         }
     });
 
-    // 모든 워커 결과 수집
+    // Collect all worker results
     let mut worker_results = Vec::new();
     for handle in handles {
         match handle.await {
@@ -189,32 +189,32 @@ pub async fn run_coordinator(
             Err(e) => worker_results.push(WorkerResult {
                 subtask_id: "ERR".to_string(),
                 role: "Worker".to_string(),
-                output: format!("워커 패닉: {}", e),
+                output: format!("Worker panic: {}", e),
                 success: false,
             }),
         }
     }
 
     let success_count = worker_results.iter().filter(|r| r.success).count();
-    on_progress(&format!("📊 워커 완료: {}/{} 성공", success_count, worker_results.len()));
+    on_progress(&format!("📊 Workers complete: {}/{} succeeded", success_count, worker_results.len()));
 
-    // ── 3단계: 리더가 결과 종합 ──────────────────────────────────────────────
-    on_progress("🎯 리더: 결과 종합 중...");
+    // ── Step 3: leader synthesizes results ──────────────────────────────────────
+    on_progress("🎯 Leader: synthesizing results...");
 
     let results_text: String = worker_results.iter().map(|r| {
         format!("=== [{}] {} ===\n{}", r.subtask_id, r.role, crate::utils::trunc(&r.output, 800))
     }).collect::<Vec<_>>().join("\n\n");
 
     let synthesis_prompt = format!(
-        "다음은 병렬 실행된 워커들의 결과입니다. 이를 종합하여 일관성 있는 최종 결과를 작성하세요.\n\n\
-         원래 태스크: {}\n\n\
-         워커 결과:\n{}\n\n\
-         중복 제거, 모순 해결, 최선의 접근법 선택하여 통합된 솔루션을 제시하세요.",
+        "Here are the results from workers run in parallel. Synthesize them into a coherent final result.\n\n\
+         Original task: {}\n\n\
+         Worker results:\n{}\n\n\
+         Remove duplicates, resolve contradictions, select the best approach, and present an integrated solution.",
         task, results_text
     );
 
     let synthesis_system = format!(
-        "모델: {}\n\n당신은 여러 에이전트의 결과를 종합하는 수석 Coordinator입니다.", client.model()
+        "Model: {}\n\nYou are a senior Coordinator who synthesizes the results of multiple agents.", client.model()
     );
     let synthesis = run_agent_simple(client, &synthesis_system, &synthesis_prompt, 4, &on_progress).await;
 
@@ -224,7 +224,7 @@ pub async fn run_coordinator(
         worker_results,
         synthesis,
         total_workers: subtasks.len(),
-        elapsed_hint: format!("{}개 병렬", subtasks.len()),
+        elapsed_hint: format!("{} parallel", subtasks.len()),
     };
 
     on_progress(&result.render());
@@ -257,7 +257,7 @@ mod tests {
 
     #[test]
     fn test_parse_subtasks_valid_json() {
-        let text = r#"[{"id":"ST-1","title":"백엔드","description":"API 구현","role":"Developer","priority":1}]"#;
+        let text = r#"[{"id":"ST-1","title":"Backend","description":"Implement API","role":"Developer","priority":1}]"#;
         let tasks = parse_subtasks(text);
         assert_eq!(tasks.len(), 1);
         assert_eq!(tasks[0].id, "ST-1");
@@ -266,31 +266,31 @@ mod tests {
 
     #[test]
     fn test_parse_subtasks_empty_title_filtered() {
-        let text = r#"[{"id":"ST-1","title":"","description":"없음","role":"Dev","priority":1}]"#;
+        let text = r#"[{"id":"ST-1","title":"","description":"none","role":"Dev","priority":1}]"#;
         let tasks = parse_subtasks(text);
         assert!(tasks.is_empty());
     }
 
     #[test]
     fn test_parse_subtasks_invalid_returns_empty() {
-        let tasks = parse_subtasks("아무 JSON도 없는 텍스트");
+        let tasks = parse_subtasks("no JSON here");
         assert!(tasks.is_empty());
     }
 
     #[test]
     fn test_coordinator_result_render() {
         let result = CoordinatorResult {
-            task: "테스트 태스크".to_string(),
+            task: "test task".to_string(),
             subtasks: vec![],
             worker_results: vec![WorkerResult {
                 subtask_id: "ST-1".to_string(),
                 role: "Developer".to_string(),
-                output: "구현 완료".to_string(),
+                output: "Implementation complete".to_string(),
                 success: true,
             }],
-            synthesis: "종합 결과".to_string(),
+            synthesis: "Synthesis result".to_string(),
             total_workers: 1,
-            elapsed_hint: "1개 병렬".to_string(),
+            elapsed_hint: "1 parallel".to_string(),
         };
         let rendered = result.render();
         assert!(rendered.contains("Coordinator"));

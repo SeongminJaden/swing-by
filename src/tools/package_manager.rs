@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 use std::process::Command;
 use std::time::Duration;
 
-const PKG_TIMEOUT_SECS: u64 = 300; // 패키지 설치는 최대 5분
+const PKG_TIMEOUT_SECS: u64 = 300; // package install timeout: 5 minutes
 const MAX_OUTPUT: usize = 16_000;
 
 #[derive(Debug)]
@@ -18,12 +18,12 @@ impl std::fmt::Display for PkgResult {
     }
 }
 
-/// 패키지 설치
+/// Install a package
 pub fn pkg_install(manager: &str, package: &str) -> Result<PkgResult> {
     match manager.to_lowercase().as_str() {
         "apt" | "apt-get" => run_pkg(&["sudo", "apt-get", "install", "-y", package]),
         "pip" | "pip3" => {
-            // python3 -m pip 우선 시도 (pip3 없는 환경 대응)
+            // try python3 -m pip first (for environments without pip3)
             if run_quick("pip3", &["--version"]).is_ok() {
                 run_pkg(&["pip3", "install", package])
             } else {
@@ -41,13 +41,13 @@ pub fn pkg_install(manager: &str, package: &str) -> Result<PkgResult> {
         "pacman" => run_pkg(&["sudo", "pacman", "-S", "--noconfirm", package]),
         "conda" => run_pkg(&["conda", "install", "-y", package]),
         other => anyhow::bail!(
-            "지원하지 않는 패키지 매니저: '{}'. 지원: apt, pip, npm, cargo, gem, go, snap, brew, yum, dnf, pacman, conda",
+            "Unsupported package manager: '{}'. Supported: apt, pip, npm, cargo, gem, go, snap, brew, yum, dnf, pacman, conda",
             other
         ),
     }
 }
 
-/// 패키지 제거
+/// Remove a package
 pub fn pkg_remove(manager: &str, package: &str) -> Result<PkgResult> {
     match manager.to_lowercase().as_str() {
         "apt" | "apt-get" => run_pkg(&["sudo", "apt-get", "remove", "-y", package]),
@@ -59,7 +59,7 @@ pub fn pkg_remove(manager: &str, package: &str) -> Result<PkgResult> {
             }
         }
         "npm" => run_pkg(&["npm", "uninstall", "-g", package]),
-        "cargo" => anyhow::bail!("cargo uninstall은 shell 툴을 사용하세요"),
+        "cargo" => anyhow::bail!("Use the shell tool for cargo uninstall"),
         "gem" => run_pkg(&["gem", "uninstall", package]),
         "snap" => run_pkg(&["sudo", "snap", "remove", package]),
         "brew" => run_pkg(&["brew", "uninstall", package]),
@@ -67,11 +67,11 @@ pub fn pkg_remove(manager: &str, package: &str) -> Result<PkgResult> {
         "dnf" => run_pkg(&["sudo", "dnf", "remove", "-y", package]),
         "pacman" => run_pkg(&["sudo", "pacman", "-R", "--noconfirm", package]),
         "conda" => run_pkg(&["conda", "remove", "-y", package]),
-        other => anyhow::bail!("지원하지 않는 패키지 매니저: '{}'", other),
+        other => anyhow::bail!("Unsupported package manager: '{}'", other),
     }
 }
 
-/// 패키지 목록 조회
+/// List packages
 pub fn pkg_list(manager: &str) -> Result<PkgResult> {
     match manager.to_lowercase().as_str() {
         "apt" | "apt-get" => run_pkg(&["dpkg", "--get-selections"]),
@@ -88,31 +88,31 @@ pub fn pkg_list(manager: &str) -> Result<PkgResult> {
         "snap" => run_pkg(&["snap", "list"]),
         "brew" => run_pkg(&["brew", "list"]),
         "conda" => run_pkg(&["conda", "list"]),
-        other => anyhow::bail!("지원하지 않는 패키지 매니저: '{}'", other),
+        other => anyhow::bail!("Unsupported package manager: '{}'", other),
     }
 }
 
-/// 패키지 검색
+/// Search for a package
 pub fn pkg_search(manager: &str, query: &str) -> Result<PkgResult> {
     match manager.to_lowercase().as_str() {
         "apt" | "apt-get" => run_pkg(&["apt-cache", "search", query]),
         "pip" | "pip3" => {
-            // pip search는 deprecated, pypi.org JSON API 사용 권장
+            // pip search is deprecated; use pypi.org JSON API instead
             Err(anyhow::anyhow!(
-                "pip search는 더 이상 지원되지 않습니다.\n\
-                 대신 web_search 툴로 'pypi {}' 검색하거나\n\
-                 https://pypi.org/search/?q={} 에서 직접 검색하세요.",
+                "pip search is no longer supported.\n\
+                 Use the web_search tool to search 'pypi {}' instead,\n\
+                 or search directly at https://pypi.org/search/?q={}.",
                 query, query
             ))
         }
         "npm" => run_pkg(&["npm", "search", query]),
         "snap" => run_pkg(&["snap", "find", query]),
         "brew" => run_pkg(&["brew", "search", query]),
-        other => anyhow::bail!("지원하지 않는 패키지 매니저: '{}'", other),
+        other => anyhow::bail!("Unsupported package manager: '{}'", other),
     }
 }
 
-/// 패키지 업그레이드 (특정 패키지)
+/// Upgrade a package
 pub fn pkg_upgrade(manager: &str, package: &str) -> Result<PkgResult> {
     match manager.to_lowercase().as_str() {
         "apt" | "apt-get" => run_pkg(&["sudo", "apt-get", "install", "--only-upgrade", "-y", package]),
@@ -130,16 +130,16 @@ pub fn pkg_upgrade(manager: &str, package: &str) -> Result<PkgResult> {
         "brew" => run_pkg(&["brew", "upgrade", package]),
         "snap" => run_pkg(&["sudo", "snap", "refresh", package]),
         "conda" => run_pkg(&["conda", "update", "-y", package]),
-        other => anyhow::bail!("지원하지 않는 패키지 매니저: '{}'", other),
+        other => anyhow::bail!("Unsupported package manager: '{}'", other),
     }
 }
 
-/// 패키지 목록 업데이트 (인덱스 갱신)
+/// Update package index
 pub fn pkg_update(manager: &str) -> Result<PkgResult> {
     match manager.to_lowercase().as_str() {
         "apt" | "apt-get" => run_pkg(&["sudo", "apt-get", "update"]),
         "pip" | "pip3" => {
-            // pip 자체 업그레이드
+            // upgrade pip itself
             if run_quick("pip3", &["--version"]).is_ok() {
                 run_pkg(&["pip3", "install", "--upgrade", "pip"])
             } else {
@@ -153,15 +153,15 @@ pub fn pkg_update(manager: &str) -> Result<PkgResult> {
         "yum" => run_pkg(&["sudo", "yum", "check-update"]),
         "dnf" => run_pkg(&["sudo", "dnf", "check-update"]),
         "pacman" => run_pkg(&["sudo", "pacman", "-Sy"]),
-        other => anyhow::bail!("지원하지 않는 패키지 매니저: '{}'", other),
+        other => anyhow::bail!("Unsupported package manager: '{}'", other),
     }
 }
 
-/// 시스템 정보
+/// System information
 pub fn sysinfo() -> Result<PkgResult> {
     let mut parts = vec![];
 
-    // OS 정보
+    // OS info
     if let Ok(os) = std::fs::read_to_string("/etc/os-release") {
         let name = os.lines()
             .find(|l| l.starts_with("PRETTY_NAME="))
@@ -170,7 +170,7 @@ pub fn sysinfo() -> Result<PkgResult> {
         parts.push(format!("OS: {}", name));
     }
 
-    // 호스트명
+    // hostname
     if let Ok(hostname) = run_quick("hostname", &[]) {
         parts.push(format!("Hostname: {}", hostname.trim()));
     }
@@ -186,7 +186,7 @@ pub fn sysinfo() -> Result<PkgResult> {
         parts.push(format!("CPU: {} ({} cores)", model, cores));
     }
 
-    // 메모리
+    // memory
     if let Ok(mem_info) = std::fs::read_to_string("/proc/meminfo") {
         let total = mem_info.lines()
             .find(|l| l.starts_with("MemTotal:"))
@@ -205,7 +205,7 @@ pub fn sysinfo() -> Result<PkgResult> {
         parts.push(format!("Memory: {} total, {} available", total, avail));
     }
 
-    // 디스크
+    // disk
     if let Ok(df) = run_quick("df", &["-h", "/"]) {
         let disk_line = df.lines().nth(1).unwrap_or("").trim().to_string();
         if !disk_line.is_empty() {
@@ -213,7 +213,7 @@ pub fn sysinfo() -> Result<PkgResult> {
         }
     }
 
-    // 현재 디렉토리
+    // current directory
     if let Ok(cwd) = std::env::current_dir() {
         parts.push(format!("CWD: {}", cwd.display()));
     }
@@ -224,7 +224,7 @@ pub fn sysinfo() -> Result<PkgResult> {
     })
 }
 
-/// 프로세스 목록
+/// Process list
 pub fn process_list(filter: &str) -> Result<PkgResult> {
     let args = if filter.is_empty() {
         vec!["aux"]
@@ -247,7 +247,7 @@ pub fn process_list(filter: &str) -> Result<PkgResult> {
 fn run_pkg(args: &[&str]) -> Result<PkgResult> {
     let timeout = Duration::from_secs(PKG_TIMEOUT_SECS);
     if args.is_empty() {
-        anyhow::bail!("명령어가 비어 있음");
+        anyhow::bail!("Command is empty");
     }
 
     let program = args[0].to_string();
@@ -261,8 +261,8 @@ fn run_pkg(args: &[&str]) -> Result<PkgResult> {
 
     let output = rx
         .recv_timeout(timeout)
-        .with_context(|| format!("타임아웃 ({}초)", PKG_TIMEOUT_SECS))?
-        .with_context(|| format!("명령어 실행 실패: {}", args[0]))?;
+        .with_context(|| format!("Timeout ({}s)", PKG_TIMEOUT_SECS))?
+        .with_context(|| format!("Command failed: {}", args[0]))?;
 
     let stdout = String::from_utf8_lossy(&output.stdout).to_string();
     let stderr = String::from_utf8_lossy(&output.stderr).to_string();
@@ -274,7 +274,7 @@ fn run_pkg(args: &[&str]) -> Result<PkgResult> {
     };
 
     let out_text = if combined.len() > MAX_OUTPUT {
-        format!("{}...[잘림]", &combined[..MAX_OUTPUT])
+        format!("{}...[truncated]", &combined[..MAX_OUTPUT])
     } else {
         combined
     };
@@ -289,6 +289,6 @@ fn run_quick(program: &str, args: &[&str]) -> Result<String> {
     let output = Command::new(program)
         .args(args)
         .output()
-        .with_context(|| format!("실행 실패: {}", program))?;
+        .with_context(|| format!("Execution failed: {}", program))?;
     Ok(String::from_utf8_lossy(&output.stdout).to_string())
 }

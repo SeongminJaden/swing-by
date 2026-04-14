@@ -1,18 +1,18 @@
-//! AI-to-AI 통신 서버
+//! AI-to-AI communication server
 //!
-//! 두 가지 모드:
-//!   stdio 모드: stdin에서 JSON-RPC 요청을 읽고 stdout에 응답
-//!               다른 AI가 이 프로세스를 subprocess로 실행하여 통신
-//!               (MCP protocol과 동일한 방식)
+//! Two modes:
+//!   stdio mode: reads JSON-RPC requests from stdin and responds to stdout
+//!               other AIs run this process as a subprocess to communicate
+//!               (same as MCP protocol)
 //!
-//!   HTTP 모드: TCP 소켓에서 JSON-RPC 요청 수신
-//!               외부 AI가 HTTP POST로 호출
+//!   HTTP mode: receives JSON-RPC requests on TCP socket
+//!               external AIs call via HTTP POST
 //!
-//! 사용 예 (Claude Code에서):
-//!   `ai_agent --ipc-stdio`   → Claude Code가 subprocess로 실행
-//!   `ai_agent --ipc-server 8765` → HTTP 서버로 실행
+//! Usage examples (from Claude Code):
+//!   `ai_agent --ipc-stdio`   → Claude Code runs as subprocess
+//!   `ai_agent --ipc-server 8765` → run as HTTP server
 //!
-//! 다른 AI에서 호출:
+//! Calling from another AI:
 //!   echo '{"jsonrpc":"2.0","id":1,"method":"chat","params":{"prompt":"hello"}}' | ai_agent --ipc-stdio
 //!   curl -X POST http://localhost:8765 -H 'Content-Type: application/json' \
 //!        -d '{"jsonrpc":"2.0","id":1,"method":"capabilities","params":{}}'
@@ -34,13 +34,13 @@ impl AgentServer {
         Self { client }
     }
 
-    // ─── stdio 모드 ──────────────────────────────────────────────────────────
+    // ─── stdio mode ──────────────────────────────────────────────────────────
 
-    /// stdin/stdout JSON-RPC 루프 (MCP 호환)
+    /// stdin/stdout JSON-RPC loop (MCP compatible)
     pub async fn run_stdio(&self) -> Result<()> {
         use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 
-        eprintln!("[IPC] stdio 모드 시작 (JSON-RPC 2.0)");
+        eprintln!("[IPC] stdio mode started (JSON-RPC 2.0)");
 
         let stdin = tokio::io::stdin();
         let mut stdout = tokio::io::stdout();
@@ -72,41 +72,41 @@ impl AgentServer {
         Ok(())
     }
 
-    // ─── HTTP 서버 모드 ──────────────────────────────────────────────────────
+    // ─── HTTP server mode ──────────────────────────────────────────────────────
 
-    /// TCP HTTP 서버 (tokio 기반 미니멀 HTTP)
+    /// TCP HTTP server (tokio-based minimal HTTP)
     pub async fn run_http_server(&self, port: u16) -> Result<()> {
         use tokio::net::TcpListener;
         use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
         let listener = TcpListener::bind(format!("0.0.0.0:{}", port)).await?;
-        eprintln!("[IPC] HTTP 서버 시작 — http://0.0.0.0:{}", port);
-        eprintln!("[IPC] 다른 AI가 POST /  또는  POST /rpc 로 JSON-RPC 요청 가능");
+        eprintln!("[IPC] HTTP server started — http://0.0.0.0:{}", port);
+        eprintln!("[IPC] Other AIs can send JSON-RPC requests to POST / or POST /rpc");
 
         loop {
             let (mut stream, addr) = listener.accept().await?;
-            eprintln!("[IPC] 연결: {}", addr);
+            eprintln!("[IPC] Connection: {}", addr);
 
-            // 간단한 HTTP Parsing
+            // Simple HTTP parsing
             let mut buf = vec![0u8; 16384];
             let n = stream.read(&mut buf).await?;
             let raw = String::from_utf8_lossy(&buf[..n]);
 
-            // HTTP 요청에서 body 추출
+            // Extract body from HTTP request
             let body = if let Some(sep) = raw.find("\r\n\r\n") {
                 raw[sep + 4..].trim().to_string()
             } else {
                 String::new()
             };
 
-            // CORS + JSON-RPC 처리
+            // CORS + JSON-RPC handling
             let (status, resp_body) = if body.is_empty() {
                 ("200 OK", json!({"status": "AI Agent IPC Server running", "version": "0.1.0"}).to_string())
             } else {
                 match serde_json::from_str::<JsonRpcRequest>(&body) {
                     Ok(req) => {
                         let caller_info = extract_caller_header(&raw);
-                        eprintln!("[IPC] 요청: {} (caller: {})", req.method, caller_info);
+                        eprintln!("[IPC] Request: {} (caller: {})", req.method, caller_info);
                         let resp = self.handle_request(req).await;
                         ("200 OK", serde_json::to_string(&resp).unwrap_or_default())
                     }
@@ -135,14 +135,14 @@ impl AgentServer {
         }
     }
 
-    // ─── 요청 처리 ───────────────────────────────────────────────────────────
+    // ─── Request handling ───────────────────────────────────────────────────────────
 
     async fn handle_request(&self, req: JsonRpcRequest) -> JsonRpcResponse {
         let id = req.id.clone();
         let params = req.params.unwrap_or(json!({}));
 
         match req.method.as_str() {
-            // 초기화 핸드쉐이크 (MCP 호환)
+            // Initialization handshake (MCP compatible)
             "initialize" => {
                 JsonRpcResponse::ok(id, json!({
                     "protocolVersion": "2024-11-05",
@@ -160,26 +160,26 @@ impl AgentServer {
                 }))
             }
 
-            // 능력 목록
+            // Capability list
             "capabilities" | "tools/list" => {
                 let caps = declare_capabilities();
                 JsonRpcResponse::ok(id, json!({ "capabilities": caps }))
             }
 
-            // 연결 확인
+            // Connection check
             "ping" => {
                 JsonRpcResponse::ok(id, json!({ "pong": true, "model": self.client.model() }))
             }
 
-            // 일반 대화
+            // General conversation
             "chat" => {
                 let prompt = params["prompt"].as_str().unwrap_or("");
                 let caller = params["caller_id"].as_str().unwrap_or("unknown");
                 if prompt.is_empty() {
-                    return JsonRpcResponse::err(id, -32602, "prompt 파라미터 필요");
+                    return JsonRpcResponse::err(id, -32602, "prompt parameter required");
                 }
 
-                eprintln!("[IPC] chat 요청 (from: {}) — {}", caller,
+                eprintln!("[IPC] chat request (from: {}) — {}", caller,
                     crate::utils::trunc(prompt, 60));
 
                 let result = self.run_chat(prompt, caller).await;
@@ -189,20 +189,20 @@ impl AgentServer {
                 }
             }
 
-            // 툴 직접 실행
+            // Direct tool execution
             "run_tool" | "tools/call" => {
                 let tool_name = params["name"].as_str()
                     .or_else(|| params["tool"].as_str())
                     .unwrap_or("");
                 if tool_name.is_empty() {
-                    return JsonRpcResponse::err(id, -32602, "name 파라미터 필요");
+                    return JsonRpcResponse::err(id, -32602, "name parameter required");
                 }
 
                 let args: Vec<String> = params["args"].as_array()
                     .map(|a| a.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect())
                     .unwrap_or_default();
 
-                eprintln!("[IPC] 툴 실행: {} {:?}", tool_name, args);
+                eprintln!("[IPC] Tool execution: {} {:?}", tool_name, args);
 
                 let tc = crate::models::ToolCall { name: tool_name.to_string(), args };
                 let result = crate::agent::tools::dispatch_tool(&tc).await;
@@ -212,15 +212,15 @@ impl AgentServer {
                 }))
             }
 
-            // 애자일 Sprint
+            // Agile sprint
             "agile_sprint" => {
                 let project = params["project"].as_str().unwrap_or("ipc_project");
                 let request = params["request"].as_str().unwrap_or("");
                 if request.is_empty() {
-                    return JsonRpcResponse::err(id, -32602, "request 파라미터 필요");
+                    return JsonRpcResponse::err(id, -32602, "request parameter required");
                 }
 
-                eprintln!("[IPC] 애자일 스프린트: {} — {}", project,
+                eprintln!("[IPC] Agile sprint: {} — {}", project,
                     crate::utils::trunc(request, 60));
 
                 match crate::agile::run_agile_sprint(
@@ -238,7 +238,7 @@ impl AgentServer {
                 }
             }
 
-            // 보드 상태
+            // Board status
             "board_status" => {
                 let project = params["project"].as_str().unwrap_or("default");
                 let board = crate::agile::AgileBoard::load_or_new(project);
@@ -246,7 +246,7 @@ impl AgentServer {
                 JsonRpcResponse::ok(id, json!({ "board": rendered }))
             }
 
-            // 알 수 없는 메서드
+            // Unknown method
             unknown => {
                 JsonRpcResponse::err(id, -32601,
                     &format!("Method not found: {}", unknown))
@@ -254,7 +254,7 @@ impl AgentServer {
         }
     }
 
-    // ─── 대화 실행 ───────────────────────────────────────────────────────────
+    // ─── Conversation execution ───────────────────────────────────────────────────────────
 
     async fn run_chat(&self, prompt: &str, caller: &str) -> Result<String> {
         use crate::models::Message;
@@ -262,7 +262,7 @@ impl AgentServer {
         use crate::agent::chat::load_claude_md;
 
         let system = format!(
-            "모델: {}\n\n{}{}\n\n[IPC 모드] 호출자: {}",
+            "Model: {}\n\n{}{}\n\n[IPC mode] caller: {}",
             self.client.model(), tool_descriptions(), load_claude_md(), caller
         );
 
@@ -280,12 +280,12 @@ impl AgentServer {
                 crate::models::AgentResponse::ToolCall(tc) => {
                     let result = crate::agent::tools::dispatch_tool(&tc).await;
                     history.push(Message::assistant(&text));
-                    history.push(Message::tool(format!("툴 '{}' 결과:\n{}", tc.name, result.output)));
+                    history.push(Message::tool(format!("Tool '{}' result:\n{}", tc.name, result.output)));
                 }
             }
         }
 
-        Ok("최대 턴 수 초과".to_string())
+        Ok("Maximum turns exceeded".to_string())
     }
 }
 

@@ -1,6 +1,6 @@
-/// 코드 품질 툴: 린트, 포맷, 테스트 실행
+/// Code quality tools: lint, format, test runner
 ///
-/// 언어별 표준 도구를 자동으로 선택하여 실행
+/// Automatically selects the standard tool for each language
 
 use anyhow::Result;
 use std::process::Command;
@@ -22,9 +22,9 @@ impl std::fmt::Display for QualityResult {
     }
 }
 
-// ─── 린트 ────────────────────────────────────────────────────────────────────
+// ─── Lint ─────────────────────────────────────────────────────────────────────
 
-/// 코드 품질 검사 (lint)
+/// Run code quality check (lint)
 pub fn lint(language: &str, path: &str) -> Result<QualityResult> {
     let path = if path.is_empty() { "." } else { path };
     match language.to_lowercase().as_str() {
@@ -35,23 +35,23 @@ pub fn lint(language: &str, path: &str) -> Result<QualityResult> {
         "c" | "c++" | "cpp" => lint_cpp(path),
         "ruby" | "rb" => lint_ruby(path),
         "php" => lint_php(path),
-        other => anyhow::bail!("지원하지 않는 린트 언어: '{}'", other),
+        other => anyhow::bail!("Unsupported lint language: '{}'", other),
     }
 }
 
 fn lint_rust(path: &str) -> Result<QualityResult> {
-    // cargo clippy 우선, 없으면 cargo check
+    // prefer cargo clippy, fall back to cargo check
     let cargo = find_cargo();
     let r = run_quality(&[&cargo, "clippy", "--", "-D", "warnings"], path, "cargo clippy")?;
     if !r.success {
-        // clippy 실패 시 check로 폴백
+        // fall back to check if clippy fails
         return run_quality(&[&cargo, "check"], path, "cargo check");
     }
     Ok(r)
 }
 
 fn lint_python(path: &str) -> Result<QualityResult> {
-    // ruff > flake8 > pylint 순서로 시도
+    // try in order: ruff > flake8 > pylint
     if cmd_exists("ruff") {
         run_quality(&["ruff", "check", path], ".", "ruff")
     } else if cmd_exists("flake8") {
@@ -69,7 +69,7 @@ fn lint_js(path: &str) -> Result<QualityResult> {
     } else if cmd_exists("biome") {
         run_quality(&["biome", "check", path], ".", "biome")
     } else {
-        anyhow::bail!("ESLint 또는 Biome이 설치되지 않음. npm install -g eslint 로 설치")
+        anyhow::bail!("ESLint or Biome not installed. Run: npm install -g eslint")
     }
 }
 
@@ -87,7 +87,7 @@ fn lint_cpp(path: &str) -> Result<QualityResult> {
     } else if cmd_exists("cppcheck") {
         run_quality(&["cppcheck", "--enable=all", path], ".", "cppcheck")
     } else {
-        anyhow::bail!("cppcheck 또는 clang-tidy 설치 필요: sudo apt install cppcheck")
+        anyhow::bail!("cppcheck or clang-tidy required: sudo apt install cppcheck")
     }
 }
 
@@ -95,7 +95,7 @@ fn lint_ruby(path: &str) -> Result<QualityResult> {
     if cmd_exists("rubocop") {
         run_quality(&["rubocop", path], ".", "rubocop")
     } else {
-        anyhow::bail!("RuboCop 설치 필요: gem install rubocop")
+        anyhow::bail!("RuboCop required: gem install rubocop")
     }
 }
 
@@ -105,13 +105,13 @@ fn lint_php(path: &str) -> Result<QualityResult> {
     } else if cmd_exists("php") {
         run_quality(&["php", "-l", path], ".", "php -l")
     } else {
-        anyhow::bail!("PHP가 설치되지 않음")
+        anyhow::bail!("PHP not installed")
     }
 }
 
-// ─── 포맷 ────────────────────────────────────────────────────────────────────
+// ─── Format ─────────────────────────────────────────────────────────────────────
 
-/// 코드 자동 포맷팅
+/// Auto-format code
 pub fn format_code(language: &str, path: &str) -> Result<QualityResult> {
     let path = if path.is_empty() { "." } else { path };
     match language.to_lowercase().as_str() {
@@ -121,7 +121,7 @@ pub fn format_code(language: &str, path: &str) -> Result<QualityResult> {
         "go" | "golang" => format_go(path),
         "c" | "c++" | "cpp" => format_cpp(path),
         "ruby" | "rb" => format_ruby(path),
-        other => anyhow::bail!("지원하지 않는 포맷 언어: '{}'", other),
+        other => anyhow::bail!("Unsupported format language: '{}'", other),
     }
 }
 
@@ -138,7 +138,7 @@ fn format_python(path: &str) -> Result<QualityResult> {
     } else if cmd_exists("autopep8") {
         run_quality(&["autopep8", "--in-place", "--recursive", path], ".", "autopep8")
     } else {
-        anyhow::bail!("black 또는 ruff 설치 필요: pip install black")
+        anyhow::bail!("black or ruff required: pip install black")
     }
 }
 
@@ -148,7 +148,7 @@ fn format_js(path: &str) -> Result<QualityResult> {
     } else if cmd_exists("biome") {
         run_quality(&["biome", "format", "--write", path], ".", "biome format")
     } else {
-        anyhow::bail!("Prettier 설치 필요: npm install -g prettier")
+        anyhow::bail!("Prettier required: npm install -g prettier")
     }
 }
 
@@ -160,7 +160,7 @@ fn format_cpp(path: &str) -> Result<QualityResult> {
     if cmd_exists("clang-format") {
         run_quality(&["clang-format", "-i", path], ".", "clang-format")
     } else {
-        anyhow::bail!("clang-format 설치 필요: sudo apt install clang-format")
+        anyhow::bail!("clang-format required: sudo apt install clang-format")
     }
 }
 
@@ -168,13 +168,13 @@ fn format_ruby(path: &str) -> Result<QualityResult> {
     if cmd_exists("rubocop") {
         run_quality(&["rubocop", "-a", path], ".", "rubocop -a")
     } else {
-        anyhow::bail!("RuboCop 설치 필요: gem install rubocop")
+        anyhow::bail!("RuboCop required: gem install rubocop")
     }
 }
 
-// ─── 테스트 ───────────────────────────────────────────────────────────────────
+// ─── Test ────────────────────────────────────────────────────────────────────
 
-/// 테스트 실행
+/// Run tests
 pub fn run_tests(language: &str, path: &str, filter: &str) -> Result<QualityResult> {
     let path = if path.is_empty() { "." } else { path };
     match language.to_lowercase().as_str() {
@@ -185,7 +185,7 @@ pub fn run_tests(language: &str, path: &str, filter: &str) -> Result<QualityResu
         "go" | "golang" => test_go(path, filter),
         "java" => test_java(path, filter),
         other => {
-            // shell로 test 명령 시도
+            // try test command via shell
             let cmd = if filter.is_empty() {
                 format!("cd '{}' && {} test", path, other)
             } else {
@@ -244,13 +244,13 @@ fn test_java(path: &str, _filter: &str) -> Result<QualityResult> {
     } else if std::path::Path::new(&format!("{}/build.gradle", path)).exists() {
         run_quality(&["./gradlew", "test"], path, "gradle test")
     } else {
-        anyhow::bail!("Maven pom.xml 또는 Gradle build.gradle 없음")
+        anyhow::bail!("Maven pom.xml or Gradle build.gradle not found")
     }
 }
 
-// ─── 빌드 ────────────────────────────────────────────────────────────────────
+// ─── Build ─────────────────────────────────────────────────────────────────────
 
-/// 프로젝트 빌드
+/// Build project
 pub fn build_project(language: &str, path: &str) -> Result<QualityResult> {
     let path = if path.is_empty() { "." } else { path };
     match language.to_lowercase().as_str() {
@@ -261,7 +261,7 @@ pub fn build_project(language: &str, path: &str) -> Result<QualityResult> {
         "go" | "golang" => run_quality(&["go", "build", "./..."], path, "go build"),
         "node" | "js" | "typescript" | "ts" => run_quality(&["npm", "run", "build"], path, "npm build"),
         "python" | "py" => {
-            // Python: 문법 체크만
+            // Python: syntax check only
             run_quality(&["python3", "-m", "compileall", "."], path, "python compile")
         }
         "java" => {
@@ -274,14 +274,14 @@ pub fn build_project(language: &str, path: &str) -> Result<QualityResult> {
         "c" => run_quality(&["make"], path, "make"),
         "c++" | "cpp" => run_quality(&["make"], path, "make"),
         other => {
-            anyhow::bail!("지원하지 않는 빌드 언어: '{}'", other)
+            anyhow::bail!("Unsupported build language: '{}'", other)
         }
     }
 }
 
-// ─── 환경 관리 ────────────────────────────────────────────────────────────────
+// ─── Environment management ─────────────────────────────────────────────────────────────────
 
-/// Python 가상환경 생성
+/// Create Python virtual environment
 pub fn create_venv(path: &str, name: &str) -> Result<QualityResult> {
     let venv_name = if name.is_empty() { ".venv" } else { name };
     let target = if path.is_empty() {
@@ -292,7 +292,7 @@ pub fn create_venv(path: &str, name: &str) -> Result<QualityResult> {
     run_quality(&["python3", "-m", "venv", &target], ".", "python venv")
 }
 
-/// Node 버전 관리 (nvm 사용)
+/// Manage Node version (using nvm)
 pub fn nvm_use(version: &str) -> Result<QualityResult> {
     let nvm_dir = std::env::var("NVM_DIR")
         .unwrap_or_else(|_| format!("{}/.nvm", std::env::var("HOME").unwrap_or_default()));
@@ -323,8 +323,8 @@ fn run_quality(args: &[&str], cwd: &str, tool_name: &str) -> Result<QualityResul
     });
 
     let output = rx.recv_timeout(timeout)
-        .map_err(|_| anyhow::anyhow!("타임아웃 ({}초): {}", QUALITY_TIMEOUT, tool_name))?
-        .map_err(|e| anyhow::anyhow!("실행 실패 {}: {}", tool_name, e))?;
+        .map_err(|_| anyhow::anyhow!("Timeout ({}s): {}", QUALITY_TIMEOUT, tool_name))?
+        .map_err(|e| anyhow::anyhow!("Execution failed {}: {}", tool_name, e))?;
 
     let stdout = String::from_utf8_lossy(&output.stdout).to_string();
     let stderr = String::from_utf8_lossy(&output.stderr).to_string();
@@ -334,7 +334,7 @@ fn run_quality(args: &[&str], cwd: &str, tool_name: &str) -> Result<QualityResul
         else { format!("{}\n[stderr]\n{}", stdout, stderr) };
 
     let out_text = if combined.len() > MAX_OUTPUT {
-        format!("{}...[잘림]", crate::utils::trunc(&combined, MAX_OUTPUT))
+        format!("{}...[truncated]", crate::utils::trunc(&combined, MAX_OUTPUT))
     } else {
         combined.trim().to_string()
     };

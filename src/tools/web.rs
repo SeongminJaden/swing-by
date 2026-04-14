@@ -7,14 +7,14 @@ fn make_client() -> Result<Client> {
         .timeout(Duration::from_secs(30))
         .user_agent("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/120.0")
         .build()
-        .context("HTTP 클라이언트 생성 실패")
+        .context("Failed to create HTTP client")
 }
 
-/// URL 콘텐츠 가져오기
+/// Fetch content from a URL
 pub async fn web_fetch(url: &str) -> Result<String> {
     let client = make_client()?;
     let resp = client.get(url).send().await
-        .with_context(|| format!("URL 요청 실패: {}", url))?;
+        .with_context(|| format!("Request failed: {}", url))?;
 
     if !resp.status().is_success() {
         anyhow::bail!("HTTP {}: {}", resp.status(), url);
@@ -27,7 +27,7 @@ pub async fn web_fetch(url: &str) -> Result<String> {
         .unwrap_or("")
         .to_string();
 
-    let body = resp.text().await.context("응답 읽기 실패")?;
+    let body = resp.text().await.context("Failed to read response")?;
 
     let is_html = content_type.contains("html")
         || body.trim_start().starts_with("<!DOCTYPE")
@@ -40,18 +40,18 @@ pub async fn web_fetch(url: &str) -> Result<String> {
     };
 
     if result.len() > 8000 {
-        Ok(format!("{}\n\n[... 내용이 잘렸습니다 (총 {}자)]",
+        Ok(format!("{}\n\n[... content truncated (total {} chars)]",
             crate::utils::trunc(&result, 8000), result.len()))
     } else {
         Ok(result)
     }
 }
 
-/// DuckDuckGo 웹 검색 (Instant API + HTML 폴백)
+/// DuckDuckGo web search (Instant API + HTML fallback)
 pub async fn web_search(query: &str) -> Result<String> {
     let client = make_client()?;
 
-    // 1차: DuckDuckGo Instant Answer API
+    // First: DuckDuckGo Instant Answer API
     let resp = client
         .get("https://api.duckduckgo.com/")
         .query(&[
@@ -62,33 +62,33 @@ pub async fn web_search(query: &str) -> Result<String> {
         ])
         .send()
         .await
-        .context("검색 요청 실패")?;
+        .context("Search request failed")?;
 
-    let body: serde_json::Value = resp.json().await.context("검색 결과 파싱 실패")?;
+    let body: serde_json::Value = resp.json().await.context("Failed to parse search results")?;
 
     let mut output = Vec::new();
 
-    // 즉답
+    // Direct answer
     if let Some(answer) = body["Answer"].as_str() {
         if !answer.is_empty() {
-            output.push(format!("답변: {}", answer));
+            output.push(format!("Answer: {}", answer));
         }
     }
 
-    // 요약
+    // Summary
     if let Some(text) = body["Abstract"].as_str() {
         if !text.is_empty() {
-            output.push(format!("요약: {}", text));
+            output.push(format!("Summary: {}", text));
             if let Some(src) = body["AbstractSource"].as_str() {
                 if !src.is_empty() {
-                    output.push(format!("출처: {} ({})",
+                    output.push(format!("Source: {} ({})",
                         src, body["AbstractURL"].as_str().unwrap_or("")));
                 }
             }
         }
     }
 
-    // 관련 항목
+    // Related topics
     if let Some(topics) = body["RelatedTopics"].as_array() {
         let mut count = 0;
         for topic in topics {
@@ -107,7 +107,7 @@ pub async fn web_search(query: &str) -> Result<String> {
         }
     }
 
-    // Instant API 결과가 없으면 HTML 검색 시도
+    // Fall back to HTML search if Instant API returns nothing
     if output.is_empty() {
         match search_html_fallback(&client, query).await {
             Ok(results) if !results.is_empty() => {
@@ -119,7 +119,7 @@ pub async fn web_search(query: &str) -> Result<String> {
 
     if output.is_empty() {
         Ok(format!(
-            "'{}' 검색 결과 없음.\n검색 URL: https://duckduckgo.com/?q={}",
+            "No results found for '{}'.\nSearch URL: https://duckduckgo.com/?q={}",
             query,
             query.replace(' ', "+")
         ))
@@ -128,7 +128,7 @@ pub async fn web_search(query: &str) -> Result<String> {
     }
 }
 
-/// DuckDuckGo HTML 결과 Parsing (폴백)
+/// DuckDuckGo HTML result parsing (fallback)
 async fn search_html_fallback(client: &Client, query: &str) -> Result<Vec<String>> {
     let url = format!(
         "https://html.duckduckgo.com/html/?q={}",
@@ -137,10 +137,10 @@ async fn search_html_fallback(client: &Client, query: &str) -> Result<Vec<String
     let resp = client.get(&url).send().await?;
     let html = resp.text().await?;
 
-    let mut results = vec![format!("검색: '{}'", query)];
+    let mut results = vec![format!("Search: '{}'", query)];
     let text = strip_html_search(&html);
 
-    // 텍스트에서 결과 추출 (간단히 첫 3000자)
+    // extract results from text (first 3000 chars)
     let preview: String = text.chars().take(3000).collect();
     if !preview.trim().is_empty() {
         results.push(preview);
@@ -150,11 +150,11 @@ async fn search_html_fallback(client: &Client, query: &str) -> Result<Vec<String
 }
 
 fn strip_html_search(html: &str) -> String {
-    // script/style 제거
+    // remove script/style blocks
     let s = remove_tag_block(html, "script");
     let s = remove_tag_block(&s, "style");
 
-    // 태그 제거
+    // remove tags
     let mut text = String::new();
     let mut in_tag = false;
     for ch in s.chars() {
@@ -166,7 +166,7 @@ fn strip_html_search(html: &str) -> String {
         }
     }
 
-    // 공백/줄바꿈 정리
+    // normalize whitespace/newlines
     text.lines()
         .map(|l| l.trim())
         .filter(|l| !l.is_empty() && l.len() > 10)
@@ -174,14 +174,14 @@ fn strip_html_search(html: &str) -> String {
         .join("\n")
 }
 
-/// HTML 태그 제거, 텍스트만 추출
+/// Strip HTML tags and extract plain text
 fn strip_html(html: &str) -> String {
-    // script / style 블록 제거
+    // remove script/style blocks
     let s = remove_tag_block(html, "script");
     let s = remove_tag_block(&s, "style");
     let s = remove_tag_block(&s, "noscript");
 
-    // 태그 제거
+    // remove tags
     let mut text = String::with_capacity(s.len());
     let mut in_tag = false;
     for ch in s.chars() {
@@ -193,7 +193,7 @@ fn strip_html(html: &str) -> String {
         }
     }
 
-    // HTML 엔티티 변환
+    // decode HTML entities
     let text = text
         .replace("&amp;", "&")
         .replace("&lt;", "<")
@@ -204,7 +204,7 @@ fn strip_html(html: &str) -> String {
         .replace("&mdash;", "—")
         .replace("&ndash;", "–");
 
-    // 빈 줄 정리
+    // clean up empty lines
     text.lines()
         .map(|l| l.trim())
         .filter(|l| !l.is_empty())

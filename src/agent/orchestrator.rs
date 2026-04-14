@@ -1,21 +1,21 @@
-//! 멀티에이전트 오케스트레이터
+//! Multi-agent orchestrator
 #![allow(dead_code)]
 //!
-//! 에이전트 역할:
-//!   Planner   → 태스크 분해 및 계획 수립
-//!   Developer → 코드 구현
-//!   Debugger  → 테스트 및 검증, 버그 수정
-//!   Reviewer  → 코드 리뷰 및 품질 검증
+//! Agent roles:
+//!   Planner   → task decomposition and planning
+//!   Developer → code implementation
+//!   Debugger  → testing, verification, and bug fixing
+//!   Reviewer  → code review and quality verification
 //!
 //! Pipeline:
-//!   사용자 요청 → Planner → Developer → Debugger → (Reviewer) → 결과
+//!   User request → Planner → Developer → Debugger → (Reviewer) → result
 
 use anyhow::Result;
 use crate::agent::ollama::OllamaClient;
 use crate::agent::tools::dispatch_tool;
 use crate::models::{AgentResponse, Message, ToolCall};
 
-// ─── 에이전트 역할 ────────────────────────────────────────────────────────────
+// ─── Agent roles ────────────────────────────────────────────────────────────────────────────
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum AgentRole {
@@ -29,54 +29,54 @@ pub enum AgentRole {
 impl AgentRole {
     pub fn system_prompt(&self) -> &'static str {
         match self {
-            AgentRole::General => "당신은 풀스택 AI 에이전트입니다.",
+            AgentRole::General => "You are a full-stack AI agent.",
             AgentRole::Planner => {
-                "당신은 소프트웨어 기획 전문가입니다.\n\
-                 주어진 작업을 분석하여 다음을 작성하세요:\n\
-                 1. 작업 목표 및 범위\n\
-                 2. 기술 스택 및 아키텍처 결정\n\
-                 3. 단계별 구현 계획 (각 단계에 예상 시간)\n\
-                 4. 의존성 및 위험 요소\n\
-                 5. 완료 기준 (Definition of Done)\n\n\
-                 출력 형식: JSON\n\
+                "You are a software planning expert.\n\
+                 Analyze the given task and produce:\n\
+                 1. Task objective and scope\n\
+                 2. Tech stack and architecture decisions\n\
+                 3. Step-by-step implementation plan (with estimated time per step)\n\
+                 4. Dependencies and risks\n\
+                 5. Definition of Done\n\n\
+                 Output format: JSON\n\
                  {\n\
-                   \"objective\": \"작업 목표\",\n\
-                   \"stack\": [\"기술1\", ...],\n\
-                   \"steps\": [{\"id\": 1, \"title\": \"제목\", \"description\": \"설명\", \"files\": [\"파일\"]}, ...],\n\
-                   \"risks\": [\"위험1\", ...],\n\
-                   \"done_criteria\": [\"기준1\", ...]\n\
+                   \"objective\": \"task objective\",\n\
+                   \"stack\": [\"tech1\", ...],\n\
+                   \"steps\": [{\"id\": 1, \"title\": \"title\", \"description\": \"description\", \"files\": [\"file\"]}, ...],\n\
+                   \"risks\": [\"risk1\", ...],\n\
+                   \"done_criteria\": [\"criterion1\", ...]\n\
                  }"
             }
             AgentRole::Developer => {
-                "당신은 시니어 소프트웨어 엔지니어입니다.\n\
-                 주어진 구현 계획에 따라 실제 코드를 작성하세요.\n\
-                 원칙:\n\
-                 - 에러 처리 철저히 (예외, None, 경계값)\n\
-                 - 단위 테스트 포함\n\
-                 - 복잡한 로직에 주석\n\
-                 - 보안 취약점 방지\n\
-                 - 성능 고려\n\n\
-                 파일을 실제로 작성하고 빌드를 확인하세요."
+                "You are a senior software engineer.\n\
+                 Write actual code following the given implementation plan.\n\
+                 Principles:\n\
+                 - Thorough error handling (exceptions, None, boundary values)\n\
+                 - Include unit tests\n\
+                 - Comment complex logic\n\
+                 - Prevent security vulnerabilities\n\
+                 - Consider performance\n\n\
+                 Write the files and verify the build."
             }
             AgentRole::Debugger => {
-                "당신은 디버깅 및 테스트 전문가입니다.\n\
-                 주어진 구현을 다음 순서로 검증하세요:\n\
-                 1. 코드 정적 분석 (lint/check)\n\
-                 2. 빌드 확인\n\
-                 3. 테스트 실행\n\
-                 4. 버그 발견 시 → 근본 원인 분석 → 수정 → 재검증\n\
-                 5. 엣지 케이스 확인\n\n\
-                 수정 후에는 반드시 재검증하세요."
+                "You are a debugging and testing expert.\n\
+                 Verify the given implementation in this order:\n\
+                 1. Static code analysis (lint/check)\n\
+                 2. Build verification\n\
+                 3. Run tests\n\
+                 4. When a bug is found → root cause analysis → fix → re-verify\n\
+                 5. Check edge cases\n\n\
+                 Always re-verify after making fixes."
             }
             AgentRole::Reviewer => {
-                "당신은 코드 리뷰 전문가입니다.\n\
-                 다음 항목을 체계적으로 검토하세요:\n\
-                 1. 정확성: 요구사항 충족 여부\n\
-                 2. 안전성: 보안 취약점, 에러 처리\n\
-                 3. 성능: 알고리즘 효율, 불필요한 연산\n\
-                 4. 유지보수성: 가독성, 중복 코드\n\
-                 5. 테스트 커버리지\n\n\
-                 각 항목에 점수(1-5)와 구체적 피드백을 제공하세요."
+                "You are a code review expert.\n\
+                 Systematically review the following items:\n\
+                 1. Correctness: whether requirements are met\n\
+                 2. Safety: security vulnerabilities, error handling\n\
+                 3. Performance: algorithm efficiency, unnecessary operations\n\
+                 4. Maintainability: readability, duplicate code\n\
+                 5. Test coverage\n\n\
+                 Provide a score (1-5) and specific feedback for each item."
             }
         }
     }
@@ -92,7 +92,7 @@ impl AgentRole {
     }
 }
 
-// ─── 에이전트 실행 결과 ───────────────────────────────────────────────────────
+// ─── Agent execution result ─────────────────────────────────────────────────────────────────
 
 #[derive(Debug, Clone)]
 pub struct AgentOutput {
@@ -102,7 +102,7 @@ pub struct AgentOutput {
     pub success: bool,
 }
 
-/// Pipeline 전체 결과
+/// Full pipeline result
 #[derive(Debug)]
 pub struct PipelineResult {
     pub plan: String,
@@ -112,18 +112,18 @@ pub struct PipelineResult {
     pub success: bool,
 }
 
-// ─── 단일 에이전트 실행 ───────────────────────────────────────────────────────
+// ─── Single agent execution ─────────────────────────────────────────────────────────────────
 
 pub async fn run_agent(
     client: &OllamaClient,
     role: AgentRole,
     task: &str,
-    context: &str,  // 이전 에이전트 출력 등 추가 컨텍스트
+    context: &str,  // additional context such as previous agent output
     max_turns: usize,
     on_progress: impl Fn(&str),
 ) -> AgentOutput {
     let system = format!(
-        "모델: {}\n\n{}\n\n{}",
+        "Model: {}\n\n{}\n\n{}",
         client.model(),
         crate::agent::tools::tool_descriptions(),
         role.system_prompt()
@@ -132,7 +132,7 @@ pub async fn run_agent(
     let user_content = if context.is_empty() {
         task.to_string()
     } else {
-        format!("{}\n\n## 컨텍스트\n{}", task, context)
+        format!("{}\n\n## Context\n{}", task, context)
     };
 
     let mut history = vec![
@@ -140,21 +140,21 @@ pub async fn run_agent(
         Message::user(&user_content),
     ];
 
-    on_progress(&format!("{} {} 에이전트 시작...", role.icon(), format!("{:?}", role)));
+    on_progress(&format!("{} {} agent starting...", role.icon(), format!("{:?}", role)));
 
     let mut tool_calls = 0usize;
     let mut final_output = String::new();
 
     for turn in 0..max_turns {
         let ai_text = match client.chat_stream(history.clone(), |tok| {
-            // 진행상황 스트리밍은 Discord/콘솔에 따라 다르게 처리
+            // streaming progress differs for Discord vs console
             let _ = tok;
         }).await {
             Ok(t) => t,
             Err(e) => {
                 return AgentOutput {
                     role,
-                    content: format!("에이전트 오류: {}", e),
+                    content: format!("Agent error: {}", e),
                     tool_calls_made: tool_calls,
                     success: false,
                 };
@@ -181,12 +181,12 @@ pub async fn run_agent(
                         .unwrap_or_default();
                     on_progress(&format!("  🔧 {}...", name));
                     let result = dispatch_tool(&ToolCall { name: name.clone(), args }).await;
-                    results.push(format!("툴 '{}' 결과:\n{}", name, result.output));
+                    results.push(format!("Tool '{}' result:\n{}", name, result.output));
                     tool_calls += 1;
                 }
                 history.push(Message::tool(results.join("\n\n")));
 
-                // 마지막 턴에서는 결과 수집
+                // collect result on the last turn
                 if turn == max_turns - 1 {
                     final_output = results.join("\n\n");
                 }
@@ -198,7 +198,7 @@ pub async fn run_agent(
                 tool_calls += 1;
 
                 history.push(Message::assistant(&ai_text));
-                history.push(Message::tool(format!("툴 '{}' 결과:\n{}", tc.name, result.output)));
+                history.push(Message::tool(format!("Tool '{}' result:\n{}", tc.name, result.output)));
 
                 if turn == max_turns - 1 {
                     final_output = result.output;
@@ -207,7 +207,7 @@ pub async fn run_agent(
         }
     }
 
-    on_progress(&format!("{} {:?} 완료 (툴: {}회)", role.icon(), role, tool_calls));
+    on_progress(&format!("{} {:?} complete (tools: {} call(s))", role.icon(), role, tool_calls));
 
     AgentOutput {
         role,
@@ -217,19 +217,19 @@ pub async fn run_agent(
     }
 }
 
-// ─── Pipeline 오케스트레이터 ────────────────────────────────────────────────
+// ─── Pipeline orchestrator ─────────────────────────────────────────────────────────────────
 
-/// 기획 → 개발 → 디버깅 전체 Pipeline 실행
+/// Execute the full planning → development → debugging pipeline
 pub async fn run_pipeline(
     client: &OllamaClient,
     task: &str,
 ) -> Result<PipelineResult> {
     println!("\n╔══════════════════════════════════════════════╗");
-    println!("║    멀티에이전트 파이프라인 시작              ║");
+    println!("║    Multi-agent pipeline starting             ║");
     println!("╚══════════════════════════════════════════════╝");
-    println!("작업: {}\n", crate::utils::trunc(task, 100));
+    println!("Task: {}\n", crate::utils::trunc(task, 100));
 
-    // ── 1단계: Planner ────────────────────────────────────────────
+    // ── Step 1: Planner ────────────────────────────────────────────────────
     let plan_output = run_agent(
         client,
         AgentRole::Planner,
@@ -239,15 +239,15 @@ pub async fn run_pipeline(
         |msg| println!("[Planner] {}", msg),
     ).await;
 
-    // 계획을 JSON Parsing 시도, 실패시 raw 사용
+    // attempt to parse plan as JSON, fall back to raw text
     let plan_text = plan_output.content.clone();
     let plan_summary = extract_plan_summary(&plan_text);
 
-    println!("\n📋 계획 완료:\n{}\n", crate::utils::trunc(&plan_summary, 300));
+    println!("\n📋 Plan complete:\n{}\n", crate::utils::trunc(&plan_summary, 300));
 
-    // ── 2단계: Developer ──────────────────────────────────────────
+    // ── Step 2: Developer ─────────────────────────────────────────────────
     let dev_context = format!(
-        "다음 계획에 따라 구현하세요:\n\n{}",
+        "Implement according to the following plan:\n\n{}",
         crate::utils::trunc(&plan_text, 2000)
     );
 
@@ -260,11 +260,11 @@ pub async fn run_pipeline(
         |msg| println!("[Developer] {}", msg),
     ).await;
 
-    println!("\n💻 구현 완료 (툴 {}회)\n", dev_output.tool_calls_made);
+    println!("\n💻 Implementation complete (tools used: {})\n", dev_output.tool_calls_made);
 
-    // ── 3단계: Debugger ───────────────────────────────────────────
+    // ── Step 3: Debugger ─────────────────────────────────────────────────
     let debug_context = format!(
-        "다음 구현을 검증하고 버그를 수정하세요:\n\n계획:\n{}\n\n구현:\n{}",
+        "Verify the following implementation and fix any bugs:\n\nPlan:\n{}\n\nImplementation:\n{}",
         crate::utils::trunc(&plan_text, 1000),
         crate::utils::trunc(&dev_output.content, 1000)
     );
@@ -278,12 +278,12 @@ pub async fn run_pipeline(
         |msg| println!("[Debugger] {}", msg),
     ).await;
 
-    println!("\n🔍 검증 완료 (툴 {}회)\n", debug_output.tool_calls_made);
+    println!("\n🔍 Verification complete (tools used: {})\n", debug_output.tool_calls_made);
 
-    // ── 4단계: Reviewer (선택, 툴 호출이 많았을 때만) ─────────────
+    // ── Step 4: Reviewer (optional, only when many tool calls were made) ──
     let review = if dev_output.tool_calls_made + debug_output.tool_calls_made > 3 {
         let review_context = format!(
-            "계획:\n{}\n\n구현 결과:\n{}\n\n검증 결과:\n{}",
+            "Plan:\n{}\n\nImplementation result:\n{}\n\nVerification result:\n{}",
             crate::utils::trunc(&plan_text, 800),
             crate::utils::trunc(&dev_output.content, 800),
             crate::utils::trunc(&debug_output.content, 600),
@@ -298,15 +298,15 @@ pub async fn run_pipeline(
             |msg| println!("[Reviewer] {}", msg),
         ).await;
 
-        println!("\n👁️ 리뷰 완료\n");
+        println!("\n👁️ Review complete\n");
         Some(review_output.content)
     } else {
         None
     };
 
-    // ── 결과 출력 ─────────────────────────────────────────────────
+    // ── print results ────────────────────────────────────────────────────
     println!("╔══════════════════════════════════════════════╗");
-    println!("║    파이프라인 완료                           ║");
+    println!("║    Pipeline complete                         ║");
     println!("╚══════════════════════════════════════════════╝\n");
 
     Ok(PipelineResult {
@@ -318,7 +318,7 @@ pub async fn run_pipeline(
     })
 }
 
-/// 병렬 에이전트 실행 (독립적 태스크들)
+/// Run agents in parallel (independent tasks)
 pub async fn run_parallel_agents(
     _client: &OllamaClient,
     tasks: Vec<(AgentRole, String)>,
@@ -333,7 +333,7 @@ pub async fn run_parallel_agents(
             std::env::var("OLLAMA_MODEL").unwrap_or_else(|_| "gemma4:e4b".to_string()),
         );
         set.spawn(async move {
-            run_agent(&client_clone, role, &task, "", 10, |msg| println!("[병렬] {}", msg)).await
+            run_agent(&client_clone, role, &task, "", 10, |msg| println!("[Parallel] {}", msg)).await
         });
     }
 
@@ -346,10 +346,10 @@ pub async fn run_parallel_agents(
     results
 }
 
-// ─── 계획 Parsing Helpers ──────────────────────────────────────────────────────────
+// ─── Plan parsing helpers ───────────────────────────────────────────────────────────────────
 
 fn extract_plan_summary(plan_text: &str) -> String {
-    // JSON 형식 Parsing 시도
+    // attempt JSON parsing
     if let Ok(v) = serde_json::from_str::<serde_json::Value>(plan_text) {
         let objective = v["objective"].as_str().unwrap_or("").to_string();
         let steps: Vec<String> = v["steps"].as_array()
@@ -358,10 +358,10 @@ fn extract_plan_summary(plan_text: &str) -> String {
                 .collect())
             .unwrap_or_default();
         if !objective.is_empty() {
-            return format!("목표: {}\n단계:\n{}", objective, steps.join("\n"));
+            return format!("Objective: {}\nSteps:\n{}", objective, steps.join("\n"));
         }
     }
 
-    // JSON 없으면 raw 텍스트 첫 500자
+    // no JSON: return first 500 chars of raw text
     crate::utils::trunc(plan_text, 500).to_string()
 }

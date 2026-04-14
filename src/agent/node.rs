@@ -1,26 +1,26 @@
-//! 에이전트 노드 통신 시스템
+//! Agent node communication system
 #![allow(dead_code)]
 //!
-//! 여러 에이전트 노드가 채널을 통해 메시지를 주고받으며 협업.
-//! 아키텍처:
-//!   NodeHub — 모든 노드의 채널을 관리하는 중앙 허브
-//!   AgentNode — 개별 에이전트 (송신/수신 채널 보유)
+//! Multiple agent nodes collaborate by passing messages over channels.
+//! Architecture:
+//!   NodeHub — central hub that manages all node channels
+//!   AgentNode — individual agent (holds send/receive channels)
 //!
-//! 메시지 흐름:
-//!   사용자 → Orchestrator Node → [Planner, Developer, Debugger] 노드들
-//!   각 노드 → 결과를 다음 노드로 전달 → 최종 결과 수집
+//! Message flow:
+//!   User → Orchestrator Node → [Planner, Developer, Debugger] nodes
+//!   Each node → passes result to the next node → final result collected
 
 use anyhow::Result;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-// ─── 노드 메시지 ─────────────────────────────────────────────────────────────
+// ─── Node message ───────────────────────────────────────────────────────────────────────────
 
 #[derive(Debug, Clone)]
 pub struct NodeMessage {
-    pub from: String,       // 발신 노드 이름
-    pub to: String,         // 수신 노드 이름 (빈 문자열 = 브로드캐스트)
+    pub from: String,       // sender node name
+    pub to: String,         // recipient node name (empty string = broadcast)
     pub msg_type: MsgType,
     pub content: String,
     pub metadata: HashMap<String, String>,
@@ -28,11 +28,11 @@ pub struct NodeMessage {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum MsgType {
-    Task,       // 작업 요청
-    Result,     // 결과 반환
-    Status,     // 상태 업데이트
-    Error,      // 오류
-    Control,    // 제어 명령 (pause, resume, cancel)
+    Task,       // task request
+    Result,     // result return
+    Status,     // status update
+    Error,      // error
+    Control,    // control command (pause, resume, cancel)
 }
 
 impl NodeMessage {
@@ -72,7 +72,7 @@ impl NodeMessage {
     }
 }
 
-// ─── 노드 허브 ───────────────────────────────────────────────────────────────
+// ─── Node hub ───────────────────────────────────────────────────────────────────────────────
 
 pub type NodeSender = async_channel::Sender<NodeMessage>;
 pub type NodeReceiver = async_channel::Receiver<NodeMessage>;
@@ -80,7 +80,7 @@ pub type NodeReceiver = async_channel::Receiver<NodeMessage>;
 #[derive(Clone)]
 pub struct NodeHub {
     channels: Arc<Mutex<HashMap<String, NodeSender>>>,
-    log: Arc<Mutex<Vec<NodeMessage>>>,  // 메시지 로그
+    log: Arc<Mutex<Vec<NodeMessage>>>,  // message log
 }
 
 impl NodeHub {
@@ -91,18 +91,18 @@ impl NodeHub {
         }
     }
 
-    /// 노드를 등록하고 (송신 채널, 수신 채널) 반환
+    /// Register a node and return (sender channel, receiver channel)
     pub async fn register(&self, name: &str) -> (NodeSender, NodeReceiver) {
         let (tx, rx) = async_channel::bounded(64);
         self.channels.lock().await.insert(name.to_string(), tx.clone());
         (tx, rx)
     }
 
-    /// 특정 노드에 메시지 전송
+    /// Send a message to a specific node
     pub async fn send(&self, msg: NodeMessage) -> Result<()> {
         let channels = self.channels.lock().await;
         if msg.to.is_empty() {
-            // 브로드캐스트: 발신자 제외 모든 노드
+            // broadcast: all nodes except the sender
             for (name, tx) in channels.iter() {
                 if name != &msg.from {
                     let _ = tx.try_send(msg.clone());
@@ -110,34 +110,34 @@ impl NodeHub {
             }
         } else if let Some(tx) = channels.get(&msg.to) {
             tx.send(msg.clone()).await
-                .map_err(|_| anyhow::anyhow!("노드 '{}' 채널 닫힘", msg.to))?;
+                .map_err(|_| anyhow::anyhow!("Node '{}' channel closed", msg.to))?;
         } else {
-            anyhow::bail!("노드 '{}' 를 찾을 수 없음", msg.to);
+            anyhow::bail!("Node '{}' not found", msg.to);
         }
 
-        // 로그 기록
+        // record log
         drop(channels);
         self.log.lock().await.push(msg);
         Ok(())
     }
 
-    /// 등록된 노드 목록
+    /// List registered nodes
     pub async fn node_names(&self) -> Vec<String> {
         self.channels.lock().await.keys().cloned().collect()
     }
 
-    /// 메시지 로그 조회
+    /// Get message log
     pub async fn message_log(&self) -> Vec<NodeMessage> {
         self.log.lock().await.clone()
     }
 
-    /// 특정 노드 제거
+    /// Unregister a node
     pub async fn unregister(&self, name: &str) {
         self.channels.lock().await.remove(name);
     }
 }
 
-// ─── 에이전트 노드 ───────────────────────────────────────────────────────────
+// ─── Agent node ─────────────────────────────────────────────────────────────────────────────
 
 pub struct AgentNode {
     pub name: String,
@@ -158,7 +158,7 @@ impl AgentNode {
         }
     }
 
-    /// 다른 노드에 메시지 전송
+    /// Send a message to another node
     pub async fn send(&self, to: &str, msg_type: MsgType, content: &str) -> Result<()> {
         let msg = NodeMessage {
             from: self.name.clone(),
@@ -170,12 +170,12 @@ impl AgentNode {
         self.hub.send(msg).await
     }
 
-    /// 메시지 수신 (비차단)
+    /// Receive a message (non-blocking)
     pub fn try_recv(&self) -> Option<NodeMessage> {
         self.rx.try_recv().ok()
     }
 
-    /// 메시지 수신 (차단, 타임아웃 있음)
+    /// Receive a message (blocking with timeout)
     pub async fn recv_timeout(&self, timeout_ms: u64) -> Option<NodeMessage> {
         tokio::time::timeout(
             std::time::Duration::from_millis(timeout_ms),
@@ -183,16 +183,16 @@ impl AgentNode {
         ).await.ok().and_then(|r| r.ok())
     }
 
-    /// 상태 브로드캐스트
+    /// Broadcast a status message
     pub async fn broadcast_status(&self, content: &str) -> Result<()> {
         self.hub.send(NodeMessage::status(&self.name, content)).await
     }
 }
 
-// ─── Pipeline 노드 실행 ─────────────────────────────────────────────────────
+// ─── Pipeline node execution ───────────────────────────────────────────────────────────────
 
-/// 허브를 통해 여러 에이전트 노드가 순차적으로 작업을 처리하는 Pipeline
-/// Planner → Developer → Debugger 형태로 결과를 전달
+/// A pipeline where multiple agent nodes process a task sequentially via the hub
+/// Results are passed in the order: Planner → Developer → Debugger
 pub async fn run_node_pipeline(
     hub: &NodeHub,
     client: &crate::agent::ollama::OllamaClient,
@@ -207,7 +207,7 @@ pub async fn run_node_pipeline(
         ("debugger", AgentRole::Debugger),
     ];
 
-    // 모든 노드 등록
+    // register all nodes
     let mut nodes = Vec::new();
     for (name, _) in &roles {
         let node = AgentNode::new(name, hub).await;
@@ -218,7 +218,7 @@ pub async fn run_node_pipeline(
     let mut final_result = String::new();
 
     for (i, ((name, role), node)) in roles.iter().zip(nodes.iter()).enumerate() {
-        let status = format!("[{}] 시작", name.to_uppercase());
+        let status = format!("[{}] Starting", name.to_uppercase());
         let _ = node.broadcast_status(&status).await;
         on_status(&status);
 
@@ -238,20 +238,20 @@ pub async fn run_node_pipeline(
         let result_str = output.content.clone();
         final_result = result_str.clone();
 
-        // 다음 노드에 결과 전달
+        // pass result to the next node
         if i + 1 < roles.len() {
             let next_name = roles[i + 1].0;
             let msg = NodeMessage::result(name, next_name, &result_str);
             let _ = hub.send(msg).await;
-            context = format!("이전 단계 ({}) 결과:\n{}", name, crate::utils::trunc(&result_str, 1500));
+            context = format!("Previous step ({}) result:\n{}", name, crate::utils::trunc(&result_str, 1500));
         }
 
-        let done_status = format!("[{}] 완료 (툴: {}회)", name.to_uppercase(), output.tool_calls_made);
+        let done_status = format!("[{}] Done (tools used: {})", name.to_uppercase(), output.tool_calls_made);
         let _ = node.broadcast_status(&done_status).await;
         on_status(&done_status);
     }
 
-    // 모든 노드 해제
+    // unregister all nodes
     for (name, _) in &roles {
         hub.unregister(name).await;
     }
@@ -270,7 +270,7 @@ mod tests {
 
         hub.send(NodeMessage::task("beta", "alpha", "hello")).await.unwrap();
 
-        let msg = rx.try_recv().expect("메시지가 있어야 함");
+        let msg = rx.try_recv().expect("should have a message");
         assert_eq!(msg.from, "beta");
         assert_eq!(msg.content, "hello");
         assert_eq!(msg.msg_type, MsgType::Task);
@@ -283,7 +283,7 @@ mod tests {
         let (_btx, brx) = hub.register("B").await;
         let (_ctx, crx) = hub.register("C").await;
 
-        // A가 브로드캐스트 → B, C에 전달되고 A 자신은 수신 안 함
+        // A broadcasts → delivered to B and C, A itself does not receive
         hub.send(NodeMessage::status("A", "broadcast")).await.unwrap();
 
         assert!(arx.try_recv().is_err(), "sender must not receive own broadcast");

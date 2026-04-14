@@ -1,6 +1,6 @@
-/// 리서치 툴: 웹 검색 + 문서 패치 + 패키지 정보 통합
+/// Research tool: web search + document fetch + package info combined
 ///
-/// 프로젝트 생성 시 최신 라이브러리/문서를 동시에 검색하고 분석
+/// Searches and analyzes the latest libraries/docs in parallel when scaffolding a project
 
 use anyhow::{Context, Result};
 use reqwest::Client;
@@ -18,24 +18,24 @@ fn make_client() -> Client {
         .unwrap_or_default()
 }
 
-// ─── 심층 검색: 검색 + 상위 N개 URL 동시 패치 ────────────────────────────────
+// ─── Deep search: query + concurrent fetch of top N URLs ──────────────────────────────────
 
-/// 검색어로 검색 후 상위 결과들의 내용을 동시에 가져와 통합
+/// Search for a query and concurrently fetch + merge the top results
 pub async fn research(query: &str, max_pages: usize) -> Result<String> {
     let max_pages = max_pages.min(5).max(1);
     let client = make_client();
 
-    // 1단계: DuckDuckGo에서 URL 목록 수집
+    // Step 1: collect URL list from DuckDuckGo
     let urls = collect_search_urls(&client, query, max_pages).await;
 
     if urls.is_empty() {
-        // Instant API 폴백
+        // Instant API fallback
         let instant = duckduckgo_instant(&client, query).await
-            .unwrap_or_else(|_| format!("검색 결과 없음: {}", query));
+            .unwrap_or_else(|_| format!("No results found: {}", query));
         return Ok(instant);
     }
 
-    // 2단계: 모든 URL 동시 패치 (tokio::join)
+    // Step 2: concurrently fetch all URLs
     let mut fetch_handles = vec![];
     for url in urls.iter().take(max_pages) {
         let client = client.clone();
@@ -47,17 +47,17 @@ pub async fn research(query: &str, max_pages: usize) -> Result<String> {
     }
 
     let mut results = vec![
-        format!("=== 검색: '{}' ===\n", query),
+        format!("=== Search: '{}' ===\n", query),
     ];
 
     for (url, handle) in fetch_handles {
         match handle.await {
             Ok(Ok(content)) if !content.trim().is_empty() => {
                 let snippet: String = content.chars().take(MAX_PER_PAGE).collect();
-                results.push(format!("--- 출처: {} ---\n{}", url, snippet));
+                results.push(format!("--- Source: {} ---\n{}", url, snippet));
             }
             Ok(Err(e)) => {
-                results.push(format!("--- {} (접근 실패: {}) ---", url, e));
+                results.push(format!("--- {} (fetch failed: {}) ---", url, e));
             }
             _ => {}
         }
@@ -65,16 +65,16 @@ pub async fn research(query: &str, max_pages: usize) -> Result<String> {
 
     let combined = results.join("\n\n");
     if combined.len() > MAX_TOTAL {
-        Ok(format!("{}\n\n[총 {}자 중 일부]",
+Ok(format!("{}\n\n[partial content, {} chars total]",
             crate::utils::trunc(&combined, MAX_TOTAL), combined.len()))
     } else {
         Ok(combined)
     }
 }
 
-/// DuckDuckGo HTML 페이지에서 URL 목록 추출
+/// Collect search result URLs from DuckDuckGo
 async fn collect_search_urls(client: &Client, query: &str, n: usize) -> Vec<String> {
-    // 방법 1: DuckDuckGo Instant API에서 RelatedTopics URL 추출
+    // Method 1: extract RelatedTopics URLs from DuckDuckGo Instant API
     let mut urls = vec![];
 
     if let Ok(resp) = client
@@ -83,7 +83,7 @@ async fn collect_search_urls(client: &Client, query: &str, n: usize) -> Vec<Stri
         .send().await
     {
         if let Ok(body) = resp.json::<serde_json::Value>().await {
-            // AbstractURL (위키피디아 등)
+            // AbstractURL (Wikipedia etc.)
             if let Some(au) = body["AbstractURL"].as_str() {
                 if !au.is_empty() { urls.push(au.to_string()); }
             }
@@ -108,7 +108,7 @@ async fn collect_search_urls(client: &Client, query: &str, n: usize) -> Vec<Stri
         }
     }
 
-    // 방법 2: DuckDuckGo HTML 페이지 스크래핑 (Instant API 결과 부족 시)
+    // Method 2: scrape DuckDuckGo HTML page (fallback when Instant API yields too few results)
     if urls.len() < n {
         if let Ok(additional) = scrape_ddg_html(client, query, n).await {
             for u in additional {
@@ -120,7 +120,7 @@ async fn collect_search_urls(client: &Client, query: &str, n: usize) -> Vec<Stri
     urls.into_iter().take(n).collect()
 }
 
-/// DuckDuckGo HTML 결과 페이지에서 링크 추출
+/// Extract links from DuckDuckGo HTML result page
 async fn scrape_ddg_html(client: &Client, query: &str, n: usize) -> Result<Vec<String>> {
     let url = format!(
         "https://html.duckduckgo.com/html/?q={}",
@@ -130,7 +130,7 @@ async fn scrape_ddg_html(client: &Client, query: &str, n: usize) -> Result<Vec<S
     let html = resp.text().await?;
 
     let mut urls = vec![];
-    // href 추출 (간단한 파서)
+    // extract hrefs (simple parser)
     let mut rest = html.as_str();
     while let Some(pos) = rest.find("uddg=") {
         rest = &rest[pos + 5..];
@@ -147,7 +147,7 @@ async fn scrape_ddg_html(client: &Client, query: &str, n: usize) -> Result<Vec<S
     Ok(urls)
 }
 
-/// DuckDuckGo Instant API 결과
+/// DuckDuckGo Instant API result
 async fn duckduckgo_instant(client: &Client, query: &str) -> Result<String> {
     let resp = client
         .get("https://api.duckduckgo.com/")
@@ -156,12 +156,12 @@ async fn duckduckgo_instant(client: &Client, query: &str) -> Result<String> {
     let body: serde_json::Value = resp.json().await?;
 
     let mut out = vec![];
-    if let Some(a) = body["Answer"].as_str() { if !a.is_empty() { out.push(format!("답변: {}", a)); } }
-    if let Some(a) = body["Abstract"].as_str() { if !a.is_empty() { out.push(format!("요약: {}", a)); } }
+    if let Some(a) = body["Answer"].as_str() { if !a.is_empty() { out.push(format!("Answer: {}", a)); } }
+    if let Some(a) = body["Abstract"].as_str() { if !a.is_empty() { out.push(format!("Summary: {}", a)); } }
     if let Some(src) = body["AbstractSource"].as_str() {
         if !src.is_empty() {
             let url = body["AbstractURL"].as_str().unwrap_or("");
-            out.push(format!("출처: {} — {}", src, url));
+            out.push(format!("Source: {} — {}", src, url));
         }
     }
     if let Some(topics) = body["RelatedTopics"].as_array() {
@@ -176,10 +176,10 @@ async fn duckduckgo_instant(client: &Client, query: &str) -> Result<String> {
     Ok(out.join("\n"))
 }
 
-/// URL 패치 후 HTML 정리
+/// Fetch a URL and clean up the HTML
 async fn fetch_and_clean(client: &Client, url: &str) -> Result<String> {
     let resp = client.get(url).send().await
-        .with_context(|| format!("패치 실패: {}", url))?;
+        .with_context(|| format!("Fetch failed: {}", url))?;
 
     if !resp.status().is_success() {
         anyhow::bail!("HTTP {}", resp.status());
@@ -199,9 +199,9 @@ async fn fetch_and_clean(client: &Client, url: &str) -> Result<String> {
     Ok(text)
 }
 
-// ─── 패키지 레지스트리 정보 ───────────────────────────────────────────────────
+// ─── Package registry information ─────────────────────────────────────────────────────────
 
-/// 패키지 최신 버전 및 메타데이터 조회
+/// Fetch the latest version and metadata for a package
 pub async fn pkg_info(ecosystem: &str, package: &str) -> Result<String> {
     let client = make_client();
     match ecosystem.to_lowercase().as_str() {
@@ -211,7 +211,7 @@ pub async fn pkg_info(ecosystem: &str, package: &str) -> Result<String> {
         "go" | "golang" => go_pkg_info(&client, package).await,
         "gem" | "ruby" => rubygems_info(&client, package).await,
         other => anyhow::bail!(
-            "지원하지 않는 생태계: '{}'. 지원: npm, pip/pypi, cargo/crates, go, gem/ruby", other
+            "Unsupported ecosystem: '{}'. Supported: npm, pip/pypi, cargo/crates, go, gem/ruby", other
         ),
     }
 }
@@ -220,7 +220,7 @@ async fn npm_info(client: &Client, package: &str) -> Result<String> {
     let url = format!("https://registry.npmjs.org/{}/latest", package);
     let resp = client.get(&url).send().await?;
     if !resp.status().is_success() {
-        anyhow::bail!("npm 패키지 '{}' 없음", package);
+        anyhow::bail!("npm package '{}' not found", package);
     }
     let data: serde_json::Value = resp.json().await?;
     let version = data["version"].as_str().unwrap_or("?");
@@ -236,11 +236,11 @@ async fn npm_info(client: &Client, package: &str) -> Result<String> {
 
     let mut out = vec![
         format!("📦 npm/{}", package),
-        format!("최신 버전: {}", version),
-        format!("라이선스: {}", license),
+        format!("Latest version: {}", version),
+        format!("License: {}", license),
     ];
-    if !desc.is_empty() { out.push(format!("설명: {}", desc)); }
-    if !homepage.is_empty() { out.push(format!("홈페이지: {}", homepage)); }
+    if !desc.is_empty() { out.push(format!("Description: {}", desc)); }
+    if !homepage.is_empty() { out.push(format!("Homepage: {}", homepage)); }
     if !peers.is_empty() { out.push(format!("peerDeps: {}", peers.join(", "))); }
 
     // weekly downloads
@@ -248,7 +248,7 @@ async fn npm_info(client: &Client, package: &str) -> Result<String> {
     if let Ok(dl_resp) = client.get(&dl_url).send().await {
         if let Ok(dl_data) = dl_resp.json::<serde_json::Value>().await {
             if let Some(dl) = dl_data["downloads"].as_u64() {
-                out.push(format!("주간 다운로드: {}", dl));
+                out.push(format!("Weekly downloads: {}", dl));
             }
         }
     }
@@ -260,7 +260,7 @@ async fn pypi_info(client: &Client, package: &str) -> Result<String> {
     let url = format!("https://pypi.org/pypi/{}/json", package);
     let resp = client.get(&url).send().await?;
     if !resp.status().is_success() {
-        anyhow::bail!("PyPI 패키지 '{}' 없음", package);
+        anyhow::bail!("PyPI package '{}' not found", package);
     }
     let data: serde_json::Value = resp.json().await?;
     let info = &data["info"];
@@ -274,12 +274,12 @@ async fn pypi_info(client: &Client, package: &str) -> Result<String> {
 
     let mut out = vec![
         format!("🐍 PyPI/{}", package),
-        format!("최신 버전: {}", version),
-        format!("Python 요구: {}", requires_python),
-        format!("라이선스: {}", license),
+        format!("Latest version: {}", version),
+        format!("Python requires: {}", requires_python),
+        format!("License: {}", license),
     ];
-    if !desc.is_empty() { out.push(format!("설명: {}", desc)); }
-    if !homepage.is_empty() { out.push(format!("홈페이지: {}", homepage)); }
+    if !desc.is_empty() { out.push(format!("Description: {}", desc)); }
+    if !homepage.is_empty() { out.push(format!("Homepage: {}", homepage)); }
 
     Ok(out.join("\n"))
 }
@@ -290,7 +290,7 @@ async fn crates_info(client: &Client, package: &str) -> Result<String> {
         .header("User-Agent", "ai-agent/1.0")
         .send().await?;
     if !resp.status().is_success() {
-        anyhow::bail!("crates.io 패키지 '{}' 없음", package);
+        anyhow::bail!("crates.io package '{}' not found", package);
     }
     let data: serde_json::Value = resp.json().await?;
     let krate = &data["crate"];
@@ -301,19 +301,19 @@ async fn crates_info(client: &Client, package: &str) -> Result<String> {
     let repo = krate["repository"].as_str().unwrap_or("");
     let license = data["versions"][0]["license"].as_str().unwrap_or("?");
 
-    // 최신 버전 features 조회
+    // fetch features for the latest version
     let mut out = vec![
         format!("🦀 crates.io/{}", package),
-        format!("최신 버전: {}", version),
-        format!("총 다운로드: {}", downloads),
-        format!("라이선스: {}", license),
+        format!("Latest version: {}", version),
+        format!("Total downloads: {}", downloads),
+        format!("License: {}", license),
     ];
-    if !desc.is_empty() { out.push(format!("설명: {}", desc)); }
-    if !homepage.is_empty() { out.push(format!("홈페이지: {}", homepage)); }
-    if !repo.is_empty() { out.push(format!("레포: {}", repo)); }
+    if !desc.is_empty() { out.push(format!("Description: {}", desc)); }
+    if !homepage.is_empty() { out.push(format!("Homepage: {}", homepage)); }
+    if !repo.is_empty() { out.push(format!("Repo: {}", repo)); }
 
-    // Cargo.toml 추가 방법
-    out.push(format!("\n# Cargo.toml에 추가:\n{} = \"{}\"", package, version));
+    // How to add to Cargo.toml
+    out.push(format!("\n# Add to Cargo.toml:\n{} = \"{}\"", package, version));
 
     Ok(out.join("\n"))
 }
@@ -322,17 +322,17 @@ async fn go_pkg_info(client: &Client, package: &str) -> Result<String> {
     // pkg.go.dev API
     let url = format!("https://pkg.go.dev/{}?tab=overview", package);
     let text = fetch_and_clean(client, &url).await
-        .unwrap_or_else(|_| format!("Go 패키지: {}", package));
+        .unwrap_or_else(|_| format!("Go package: {}", package));
 
     let snippet: String = text.chars().take(3000).collect();
-    Ok(format!("🐹 Go/{}\n출처: https://pkg.go.dev/{}\n\n{}", package, package, snippet))
+    Ok(format!("🐹 Go/{}\nSource: https://pkg.go.dev/{}\n\n{}", package, package, snippet))
 }
 
 async fn rubygems_info(client: &Client, package: &str) -> Result<String> {
     let url = format!("https://rubygems.org/api/v1/gems/{}.json", package);
     let resp = client.get(&url).send().await?;
     if !resp.status().is_success() {
-        anyhow::bail!("RubyGems '{}' 없음", package);
+        anyhow::bail!("RubyGems '{}' not found", package);
     }
     let data: serde_json::Value = resp.json().await?;
     let version = data["version"].as_str().unwrap_or("?");
@@ -342,19 +342,19 @@ async fn rubygems_info(client: &Client, package: &str) -> Result<String> {
 
     let mut out = vec![
         format!("💎 RubyGems/{}", package),
-        format!("최신 버전: {}", version),
-        format!("총 다운로드: {}", downloads),
+        format!("Latest version: {}", version),
+        format!("Total downloads: {}", downloads),
     ];
-    if !desc.is_empty() { out.push(format!("설명: {}", &desc.chars().take(200).collect::<String>())); }
-    if !homepage.is_empty() { out.push(format!("홈페이지: {}", homepage)); }
-    out.push(format!("\n# Gemfile에 추가:\ngem '{}', '~> {}'", package, version));
+    if !desc.is_empty() { out.push(format!("Description: {}", &desc.chars().take(200).collect::<String>())); }
+    if !homepage.is_empty() { out.push(format!("Homepage: {}", homepage)); }
+    out.push(format!("\n# Add to Gemfile:\ngem '{}', '~> {}'", package, version));
 
     Ok(out.join("\n"))
 }
 
-// ─── 최신 버전 일괄 조회 ─────────────────────────────────────────────────────
+// ─── Bulk latest-version lookup ────────────────────────────────────────────────────────────
 
-/// 여러 패키지의 최신 버전을 동시에 조회
+/// Concurrently fetch the latest version of multiple packages
 pub async fn pkg_versions_bulk(ecosystem: &str, packages: &[&str]) -> Result<String> {
     let mut handles = vec![];
     for &pkg in packages {
@@ -362,12 +362,12 @@ pub async fn pkg_versions_bulk(ecosystem: &str, packages: &[&str]) -> Result<Str
         let p = pkg.to_string();
         let handle = tokio::spawn(async move {
             pkg_info(&eco, &p).await
-                .unwrap_or_else(|e| format!("  {}: 조회 실패 ({})", p, e))
+                .unwrap_or_else(|e| format!("  {}: lookup failed ({})", p, e))
         });
         handles.push(handle);
     }
 
-    let mut results = vec![format!("=== {} 패키지 최신 버전 ===", ecosystem)];
+    let mut results = vec![format!("=== {} package latest versions ===", ecosystem)];
     for handle in handles {
         if let Ok(info) = handle.await {
             results.push(info);
@@ -376,9 +376,9 @@ pub async fn pkg_versions_bulk(ecosystem: &str, packages: &[&str]) -> Result<Str
     Ok(results.join("\n\n"))
 }
 
-// ─── 공식 문서 패치 ──────────────────────────────────────────────────────────
+// ─── Official documentation fetch ─────────────────────────────────────────────────────────
 
-/// 공식 문서 URL을 지정하여 내용을 깔끔하게 가져옴
+/// Fetch and clean official documentation from a given URL
 pub async fn docs_fetch(url: &str, max_chars: usize) -> Result<String> {
     let client = make_client();
     let max_chars = max_chars.max(1000).min(15000);
@@ -386,10 +386,10 @@ pub async fn docs_fetch(url: &str, max_chars: usize) -> Result<String> {
     let content = fetch_and_clean(&client, url).await?;
     let snippet: String = content.chars().take(max_chars).collect();
 
-    Ok(format!("=== 문서: {} ===\n{}", url, snippet))
+    Ok(format!("=== Docs: {} ===\n{}", url, snippet))
 }
 
-// ─── HTML 파서 ────────────────────────────────────────────────────────────────
+// ─── HTML parser ────────────────────────────────────────────────────────────────
 
 pub fn strip_html_clean(html: &str) -> String {
     let s = remove_tag_block(html, "script");
@@ -445,7 +445,7 @@ fn remove_tag_block(html: &str, tag: &str) -> String {
     result
 }
 
-// ─── URL 인코딩 Helpers ─────────────────────────────────────────────────────────
+// ─── URL encoding helpers ───────────────────────────────────────────────────────
 
 mod urlencoding {
     pub fn encode(s: &str) -> String {

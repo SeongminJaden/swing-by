@@ -2,30 +2,30 @@ use anyhow::{Context, Result};
 use std::path::Path;
 use tracing::instrument;
 
-/// 파일 읽기
+/// Read a file
 #[instrument]
 pub fn read_file(path: &str) -> Result<String> {
     let content = std::fs::read_to_string(path)
-        .with_context(|| format!("파일 읽기 실패: {}", path))?;
+        .with_context(|| format!("Failed to read file: {}", path))?;
     Ok(content)
 }
 
-/// 파일 쓰기 (덮어쓰기)
+/// Write a file (overwrite)
 #[instrument(skip(content))]
 pub fn write_file(path: &str, content: &str) -> Result<()> {
-    // 부모 디렉토리가 없으면 생성
+    // create parent directories if they do not exist
     if let Some(parent) = Path::new(path).parent() {
         if !parent.as_os_str().is_empty() {
             std::fs::create_dir_all(parent)
-                .with_context(|| format!("디렉토리 생성 실패: {}", parent.display()))?;
+                .with_context(|| format!("Failed to create directory: {}", parent.display()))?;
         }
     }
     std::fs::write(path, content)
-        .with_context(|| format!("파일 쓰기 실패: {}", path))?;
+        .with_context(|| format!("Failed to write file: {}", path))?;
     Ok(())
 }
 
-/// 파일에 내용 추가 (append)
+/// Append content to a file
 #[instrument(skip(content))]
 pub fn append_file(path: &str, content: &str) -> Result<()> {
     use std::io::Write;
@@ -33,17 +33,17 @@ pub fn append_file(path: &str, content: &str) -> Result<()> {
         .create(true)
         .append(true)
         .open(path)
-        .with_context(|| format!("파일 열기 실패: {}", path))?;
+        .with_context(|| format!("Failed to open file: {}", path))?;
     file.write_all(content.as_bytes())
-        .with_context(|| format!("파일 쓰기 실패: {}", path))?;
+        .with_context(|| format!("Failed to write file: {}", path))?;
     Ok(())
 }
 
-/// 디렉토리 목록 (재귀 아님)
+/// List directory entries (non-recursive)
 #[instrument]
 pub fn list_dir(path: &str) -> Result<Vec<String>> {
     let entries = std::fs::read_dir(path)
-        .with_context(|| format!("디렉토리 읽기 실패: {}", path))?;
+        .with_context(|| format!("Failed to read directory: {}", path))?;
 
     let mut items: Vec<String> = entries
         .filter_map(|e| e.ok())
@@ -62,28 +62,28 @@ pub fn list_dir(path: &str) -> Result<Vec<String>> {
     Ok(items)
 }
 
-/// 파일 삭제
+/// Delete a file or directory
 #[instrument]
 pub fn delete_file(path: &str) -> Result<()> {
     let p = Path::new(path);
     if p.is_dir() {
         std::fs::remove_dir_all(path)
-            .with_context(|| format!("디렉토리 삭제 실패: {}", path))?;
+            .with_context(|| format!("Failed to remove directory: {}", path))?;
     } else {
         std::fs::remove_file(path)
-            .with_context(|| format!("파일 삭제 실패: {}", path))?;
+            .with_context(|| format!("Failed to remove file: {}", path))?;
     }
     Ok(())
 }
 
-/// 파일/디렉토리 이동 (rename)
+/// Move a file or directory (rename)
 #[instrument]
 pub fn move_file(src: &str, dst: &str) -> Result<()> {
-    // dst가 기존 디렉토리이면 그 안으로 이동
+    // if dst is an existing directory, move inside it
     let dst_path = Path::new(dst);
     let final_dst = if dst_path.is_dir() {
         let filename = Path::new(src).file_name()
-            .ok_or_else(|| anyhow::anyhow!("소스 파일명을 읽을 수 없습니다: {}", src))?;
+            .ok_or_else(|| anyhow::anyhow!("Cannot read source filename: {}", src))?;
         dst_path.join(filename)
     } else {
         dst_path.to_path_buf()
@@ -91,21 +91,21 @@ pub fn move_file(src: &str, dst: &str) -> Result<()> {
     if let Some(parent) = final_dst.parent() {
         if !parent.as_os_str().is_empty() {
             std::fs::create_dir_all(parent)
-                .with_context(|| format!("디렉토리 생성 실패: {}", parent.display()))?;
+                .with_context(|| format!("Failed to create directory: {}", parent.display()))?;
         }
     }
     std::fs::rename(src, &final_dst)
-        .with_context(|| format!("이동 실패: {} → {}", src, final_dst.display()))?;
+        .with_context(|| format!("Move failed: {} → {}", src, final_dst.display()))?;
     Ok(())
 }
 
-/// 파일 복사
+/// Copy a file
 #[instrument]
 pub fn copy_file(src: &str, dst: &str) -> Result<u64> {
     let dst_path = Path::new(dst);
     let final_dst = if dst_path.is_dir() {
         let filename = Path::new(src).file_name()
-            .ok_or_else(|| anyhow::anyhow!("소스 파일명을 읽을 수 없습니다: {}", src))?;
+            .ok_or_else(|| anyhow::anyhow!("Cannot read source filename: {}", src))?;
         dst_path.join(filename)
     } else {
         dst_path.to_path_buf()
@@ -113,19 +113,19 @@ pub fn copy_file(src: &str, dst: &str) -> Result<u64> {
     if let Some(parent) = final_dst.parent() {
         if !parent.as_os_str().is_empty() {
             std::fs::create_dir_all(parent)
-                .with_context(|| format!("디렉토리 생성 실패: {}", parent.display()))?;
+                .with_context(|| format!("Failed to create directory: {}", parent.display()))?;
         }
     }
     let bytes = std::fs::copy(src, &final_dst)
-        .with_context(|| format!("복사 실패: {} → {}", src, final_dst.display()))?;
+        .with_context(|| format!("Copy failed: {} → {}", src, final_dst.display()))?;
     Ok(bytes)
 }
 
-/// 디렉토리 생성 (중간 경로 포함)
+/// Create a directory (including intermediate paths)
 #[instrument]
 pub fn make_dir(path: &str) -> Result<()> {
     std::fs::create_dir_all(path)
-        .with_context(|| format!("디렉토리 생성 실패: {}", path))
+        .with_context(|| format!("Failed to create directory: {}", path))
 }
 
 #[cfg(test)]
@@ -153,7 +153,7 @@ mod tests {
     #[test]
     fn read_missing_file_returns_err() {
         let err = read_file("/tmp/no_such_file_xyz.txt").unwrap_err();
-        assert!(err.to_string().contains("파일 읽기 실패"));
+        assert!(err.to_string().contains("Failed to read"));
     }
 
     #[test]

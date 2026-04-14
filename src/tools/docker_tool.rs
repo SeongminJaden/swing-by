@@ -1,4 +1,4 @@
-/// Docker / 컨테이너 관리 툴
+/// Docker / container management tool
 
 use anyhow::Result;
 use std::process::Command;
@@ -26,7 +26,7 @@ fn run_docker(args: &[&str], cwd: Option<&str>) -> Result<DockerResult> {
 
 fn run_docker_with_timeout(args: &[&str], cwd: Option<&str>, timeout_secs: u64) -> Result<DockerResult> {
     if !is_docker_available() {
-        anyhow::bail!("Docker가 설치되지 않았거나 실행 중이 아닙니다.\n설치: https://docs.docker.com/engine/install/");
+        anyhow::bail!("Docker is not installed or not running.\nInstall: https://docs.docker.com/engine/install/");
     }
 
     let timeout = Duration::from_secs(timeout_secs);
@@ -43,8 +43,8 @@ fn run_docker_with_timeout(args: &[&str], cwd: Option<&str>, timeout_secs: u64) 
     });
 
     let output = rx.recv_timeout(timeout)
-        .map_err(|_| anyhow::anyhow!("Docker 타임아웃 ({}초)", timeout_secs))?
-        .map_err(|e| anyhow::anyhow!("Docker 실행 실패: {}", e))?;
+        .map_err(|_| anyhow::anyhow!("Docker timeout ({}s)", timeout_secs))?
+        .map_err(|e| anyhow::anyhow!("Docker execution failed: {}", e))?;
 
     let stdout = String::from_utf8_lossy(&output.stdout).to_string();
     let stderr = String::from_utf8_lossy(&output.stderr).to_string();
@@ -57,7 +57,7 @@ fn run_docker_with_timeout(args: &[&str], cwd: Option<&str>, timeout_secs: u64) 
     };
 
     let out_text = if combined.len() > MAX_OUTPUT {
-        format!("{}...[잘림]", crate::utils::trunc(&combined, MAX_OUTPUT))
+        format!("{}...[truncated]", crate::utils::trunc(&combined, MAX_OUTPUT))
     } else {
         combined.trim().to_string()
     };
@@ -72,7 +72,7 @@ fn is_docker_available() -> bool {
         .unwrap_or(false)
 }
 
-// ─── Docker 명령어 ────────────────────────────────────────────────────────────
+// ─── Docker commands ─────────────────────────────────────────────────────────────
 
 /// docker ps [all]
 pub fn docker_ps(all: bool) -> Result<DockerResult> {
@@ -119,7 +119,7 @@ pub fn docker_run(image: &str, options: &str, cmd: &str) -> Result<DockerResult>
 pub fn docker_control(action: &str, container: &str) -> Result<DockerResult> {
     let action = match action.to_lowercase().as_str() {
         "stop" | "start" | "restart" | "rm" | "kill" => action.to_lowercase(),
-        other => anyhow::bail!("유효하지 않은 docker 액션: '{}'", other),
+        other => anyhow::bail!("Invalid docker action: '{}'", other),
     };
     run_docker(&[&action, container], None)
 }
@@ -171,7 +171,7 @@ pub fn docker_volume_rm(volume: &str) -> Result<DockerResult> {
     run_docker(&["volume", "rm", volume], None)
 }
 
-/// docker system prune (unused objects 정리)
+/// docker system prune (clean up unused objects)
 pub fn docker_prune(all: bool) -> Result<DockerResult> {
     if all {
         run_docker_with_timeout(&["system", "prune", "-af"], None, 120)
@@ -185,13 +185,13 @@ pub fn docker_compose(action: &str, path: &str, detach: bool) -> Result<DockerRe
     let cwd = if path.is_empty() { "." } else { path };
     let action_str = action.to_lowercase();
 
-    // docker compose (v2) 또는 docker-compose (v1)
+    // docker compose (v2) or legacy docker-compose (v1)
     let compose_cmd = if docker_compose_v2_available() { "compose" } else { "" };
 
     let result = match action_str.as_str() {
         "up" => {
             if compose_cmd.is_empty() {
-                // docker-compose 시도
+                // try legacy docker-compose
                 run_compose_legacy(&["up", if detach { "-d" } else { "" }].iter().filter(|s| !s.is_empty()).cloned().collect::<Vec<_>>(), cwd)
             } else if detach {
                 run_docker(&["compose", "up", "-d"], Some(cwd))
@@ -227,7 +227,7 @@ pub fn docker_compose(action: &str, path: &str, detach: bool) -> Result<DockerRe
                 run_docker(&["compose", "logs", "--tail=50"], Some(cwd))
             }
         }
-        other => anyhow::bail!("유효하지 않은 compose 액션: '{}'", other),
+        other => anyhow::bail!("Invalid compose action: '{}'", other),
     };
 
     result
@@ -255,8 +255,8 @@ fn run_compose_legacy(args: &[&str], cwd: &str) -> Result<DockerResult> {
     });
 
     let output = rx.recv_timeout(timeout)
-        .map_err(|_| anyhow::anyhow!("docker-compose 타임아웃"))?
-        .map_err(|e| anyhow::anyhow!("docker-compose 실행 실패: {}", e))?;
+        .map_err(|_| anyhow::anyhow!("docker-compose timeout"))?
+        .map_err(|e| anyhow::anyhow!("docker-compose execution failed: {}", e))?;
 
     let stdout = String::from_utf8_lossy(&output.stdout).to_string();
     let stderr = String::from_utf8_lossy(&output.stderr).to_string();
@@ -268,7 +268,7 @@ fn run_compose_legacy(args: &[&str], cwd: &str) -> Result<DockerResult> {
     })
 }
 
-/// Dockerfile 자동 생성
+/// Auto-generate Dockerfile
 pub fn generate_dockerfile(language: &str, project_name: &str, path: &str) -> Result<String> {
     let content = match language.to_lowercase().as_str() {
         "python" | "django" | "flask" | "fastapi" => dockerfile_python(project_name),
@@ -277,7 +277,7 @@ pub fn generate_dockerfile(language: &str, project_name: &str, path: &str) -> Re
         "rust" => dockerfile_rust(project_name),
         "go" | "golang" => dockerfile_go(project_name),
         "java" | "spring" => dockerfile_java(project_name),
-        other => anyhow::bail!("지원하지 않는 Dockerfile 생성 언어: '{}'", other),
+        other => anyhow::bail!("Unsupported Dockerfile language: '{}'", other),
     };
 
     let target = if path.is_empty() { "Dockerfile".to_string() }
@@ -287,16 +287,16 @@ pub fn generate_dockerfile(language: &str, project_name: &str, path: &str) -> Re
         let _ = std::fs::create_dir_all(parent);
     }
     std::fs::write(&target, &content)
-        .map_err(|e| anyhow::anyhow!("Dockerfile 저장 실패: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("Failed to save Dockerfile: {}", e))?;
 
-    // docker-compose.yml도 생성
+    // also generate docker-compose.yml
     let compose_path = if path.is_empty() { "docker-compose.yml".to_string() }
         else { format!("{}/docker-compose.yml", path) };
 
     let compose_content = generate_compose(language, project_name);
     let _ = std::fs::write(&compose_path, &compose_content);
 
-    Ok(format!("✅ Dockerfile + docker-compose.yml 생성: {}", target))
+    Ok(format!("✅ Dockerfile + docker-compose.yml created: {}", target))
 }
 
 fn dockerfile_python(name: &str) -> String {
@@ -304,7 +304,7 @@ fn dockerfile_python(name: &str) -> String {
 
 WORKDIR /app
 
-# 의존성 먼저 설치 (캐시 활용)
+# Install dependencies first (for layer caching)
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
@@ -314,8 +314,8 @@ EXPOSE 8000
 
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
 
-# 빌드: docker build -t {} .
-# 실행: docker run -p 8000:8000 {}
+# Build: docker build -t {} .
+# Run: docker run -p 8000:8000 {}
 "#, name, name)
 }
 
@@ -333,8 +333,8 @@ EXPOSE 3000
 
 CMD ["node", "src/app.js"]
 
-# 빌드: docker build -t {} .
-# 실행: docker run -p 3000:3000 {}
+# Build: docker build -t {} .
+# Run: docker run -p 3000:3000 {}
 "#, name, name)
 }
 
@@ -356,7 +356,7 @@ RUN npm ci --only=production
 EXPOSE 3000
 CMD ["node", "dist/index.js"]
 
-# 멀티스테이지 빌드: {} 프로덕션 이미지
+# Multi-stage build: {} production image
 "#, name)
 }
 
@@ -417,7 +417,7 @@ COPY --from=builder /app/target/*.jar app.jar
 EXPOSE 8080
 CMD ["java", "-jar", "app.jar"]
 
-# {} Spring Boot 애플리케이션
+# {} Spring Boot application
 "#, name)
 }
 
@@ -443,7 +443,7 @@ services:
       - .:/app
       - /app/node_modules
 
-  # 데이터베이스 (필요 시 주석 해제)
+  # Database (uncomment if needed)
   # db:
   #   image: postgres:16-alpine
   #   environment:

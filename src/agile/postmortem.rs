@@ -2,7 +2,7 @@
 //!
 //! Post-incident: root cause analysis → fix → prevention
 //!
-//! 흐름:
+//! Flow:
 //!   SRE          → Incident timeline + initial RCA
 //!   Developer    → Bug fix implementation
 //!   TechLead     → Fix code review + deploy approval
@@ -44,19 +44,19 @@ pub struct PostMortemResult {
 impl PostMortemResult {
     pub fn render(&self) -> String {
         let items: Vec<String> = self.action_items.iter()
-            .map(|a| format!("  - [{}] {} (담당: {}, 기한: {})", a.priority, a.title, a.owner, a.due_date))
+            .map(|a| format!("  - [{}] {} (owner: {}, due: {})", a.priority, a.title, a.owner, a.due_date))
             .collect();
 
         format!(
             "\n╔══════════════════════════════════════════════════╗\n\
-             ║  🚨 포스트모템 보고서 — {}                        \n\
+             ║  🚨 Post-Mortem Report — {}                       \n\
              ╚══════════════════════════════════════════════════╝\n\
-             심각도: {}  |  장애 시간: {}분\n\n\
-             📋 근본 원인:\n{}\n\n\
-             📊 영향 범위:\n{}\n\n\
-             🔧 수정 내용:\n{}\n\n\
-             ✅ 액션 아이템 ({}):\n{}\n\n\
-             📚 교훈:\n{}\n",
+             Severity: {}  |  Downtime: {} minutes\n\n\
+             📋 Root Cause:\n{}\n\n\
+             📊 Impact:\n{}\n\n\
+             🔧 Fix Summary:\n{}\n\n\
+             ✅ Action Items ({}):\n{}\n\n\
+             📚 Lessons Learned:\n{}\n",
             self.incident_id,
             self.severity,
             self.duration_minutes,
@@ -64,7 +64,7 @@ impl PostMortemResult {
             self.impact,
             self.fix_summary,
             self.action_items.len(),
-            if items.is_empty() { "  없음".to_string() } else { items.join("\n") },
+            if items.is_empty() { "  None".to_string() } else { items.join("\n") },
             self.lessons_learned.iter()
                 .map(|l| format!("  - {}", l))
                 .collect::<Vec<_>>().join("\n"),
@@ -85,87 +85,87 @@ pub async fn run_postmortem(
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs() % 100000).unwrap_or(0));
 
-    on_progress(&format!("\n🚨 ══ 포스트모템 시작: {} ══", incident_id));
-    on_progress(&format!("장애 설명: {}", crate::utils::trunc(incident_description, 100)));
+    on_progress(&format!("\n🚨 ══ Post-mortem starting: {} ══", incident_id));
+    on_progress(&format!("Incident description: {}", crate::utils::trunc(incident_description, 100)));
 
-    // 포스트모템용 임시 스토리
+    // Temporary story for post-mortem
     let mut story = UserStory::new(
         &incident_id,
-        &format!("[장애] {}", crate::utils::trunc(incident_description, 60)),
+        &format!("[Incident] {}", crate::utils::trunc(incident_description, 60)),
         incident_description,
         Priority::Critical, 8,
     );
-    story.add_acceptance_criteria("근본 원인 파악");
-    story.add_acceptance_criteria("수정 코드 배포");
-    story.add_acceptance_criteria("재발 방지책 문서화");
+    story.add_acceptance_criteria("Identify root cause");
+    story.add_acceptance_criteria("Deploy fix code");
+    story.add_acceptance_criteria("Document prevention measures");
 
-    // ── 1단계: SRE — 장애 분석 + 초기 RCA ──────────────────────────────────
-    print_pm_divider("1/4 · SRE — 장애 분석 + RCA");
-    on_progress("📡 SRE: 장애 타임라인 및 근본 원인 분석 중...");
+    // ── Step 1: SRE — incident analysis + initial RCA ────────────────────────
+    print_pm_divider("1/4 · SRE — Incident Analysis + RCA");
+    on_progress("📡 SRE: Analyzing incident timeline and root cause...");
 
     let sre_ctx = format!(
-        "## 장애 정보\n설명: {}\n프로젝트 경로: {}\n\n\
-         다음을 수행하세요:\n\
-         1. 로그 및 코드를 분석하여 장애 원인 파악\n\
-         2. 영향 범위 평가\n\
-         3. 타임라인 재구성\n\
-         4. 초기 RCA 작성",
+        "## Incident Information\nDescription: {}\nProject path: {}\n\n\
+         Perform the following:\n\
+         1. Analyze logs and code to identify the cause\n\
+         2. Assess impact scope\n\
+         3. Reconstruct timeline\n\
+         4. Write initial RCA",
         incident_description, project_path
     );
     let sre_output = run_agile_agent(client, AgileRole::SRE, &story, &sre_ctx, &hub, &on_progress).await;
 
-    // ── 2단계: Developer — 수정 구현 ────────────────────────────────────────
-    print_pm_divider("2/4 · Developer — 버그 수정");
-    on_progress("💻 Developer: 근본 원인 수정 중...");
+    // ── Step 2: Developer — implement fix ───────────────────────────────────
+    print_pm_divider("2/4 · Developer — Bug Fix");
+    on_progress("💻 Developer: Fixing root cause...");
 
     let dev_ctx = format!(
-        "## SRE 분석 결과\n{}\n\n\
-         위 분석을 바탕으로:\n\
-         1. 근본 원인을 수정하는 코드 작성\n\
-         2. 회귀 테스트 추가\n\
-         3. 수정 내용 설명",
+        "## SRE Analysis Result\n{}\n\n\
+         Based on the analysis above:\n\
+         1. Write code that fixes the root cause\n\
+         2. Add regression tests\n\
+         3. Explain the fix",
         crate::utils::trunc(&sre_output, 2000)
     );
     story.implementation = Some(sre_output.clone());
     let dev_output = run_agile_agent(client, AgileRole::Developer, &story, &dev_ctx, &hub, &on_progress).await;
 
-    // ── 3단계: TechLead — 수정 검토 + 배포 승인 ────────────────────────────
-    print_pm_divider("3/4 · TechLead — 수정 검토 + 승인");
-    on_progress("🎯 TechLead: 수정 코드 리뷰 및 배포 승인 중...");
+    // ── Step 3: TechLead — fix review + deploy approval ────────────────────
+    print_pm_divider("3/4 · TechLead — Fix Review + Approval");
+    on_progress("🎯 TechLead: Reviewing fix code and approving deployment...");
 
     let tl_ctx = format!(
-        "## 장애 수정 코드 리뷰\n\
-         SRE 분석: {}\n\n\
-         수정 코드: {}\n\n\
-         리뷰 항목:\n\
-         1. 수정이 근본 원인을 완전히 해결하는가?\n\
-         2. 사이드 이펙트 위험\n\
-         3. 즉시 배포 가능한가?",
+        "## Incident Fix Code Review\n\
+         SRE analysis: {}\n\n\
+         Fix code: {}\n\n\
+         Review checklist:\n\
+         1. Does the fix fully resolve the root cause?\n\
+         2. Side effect risks\n\
+         3. Is immediate deployment safe?",
         crate::utils::trunc(&sre_output, 1000),
         crate::utils::trunc(&dev_output, 1500),
     );
     story.implementation = Some(dev_output.clone());
     let tl_output = run_agile_agent(client, AgileRole::TechLead, &story, &tl_ctx, &hub, &on_progress).await;
 
-    // ── 4단계: SRE — 최종 런북 업데이트 ────────────────────────────────────
-    print_pm_divider("4/4 · SRE — 런북 + 재발 방지책");
-    on_progress("📡 SRE: 최종 런북 업데이트 및 재발 방지책 작성 중...");
+    // ── Step 4: SRE — final runbook update ──────────────────────────────────
+    print_pm_divider("4/4 · SRE — Runbook + Prevention");
+    on_progress("📡 SRE: Writing final runbook update and prevention measures...");
 
     let final_ctx = format!(
-        "## 포스트모템 최종 단계\n\
-         초기 분석: {}\n수정 완료: {}\nTechLead 승인: {}\n\n\
-         다음을 완성하세요:\n\
-         1. 최종 포스트모템 보고서\n\
-         2. 런북 업데이트\n\
-         3. 재발 방지 액션 아이템 (담당자 + 기한 포함)\n\
-         4. 교훈 정리",
+        "## Post-Mortem Final Stage\n\
+         Initial analysis: {}\nFix complete: {}\nTechLead approval: {}\n\n\
+         Complete the following:\n\
+         1. Final post-mortem report\n\
+         2. Runbook update\n\
+         3. Prevention action items (with owner + due date)\n\
+         4. Document lessons learned",
         crate::utils::trunc(&sre_output, 800),
         crate::utils::trunc(&dev_output, 600),
         crate::utils::trunc(&tl_output, 400),
     );
     let final_output = run_agile_agent(client, AgileRole::SRE, &story, &final_ctx, &hub, &on_progress).await;
 
-    // ── 결과 Parsing ────────────────────────────────────────────────────────────
+    // ── Parse results ────────────────────────────────────────────────────────────
     let result = parse_postmortem_result(&final_output, &incident_id);
     on_progress(&result.render());
 
@@ -185,7 +185,7 @@ pub fn parse_postmortem_result(text: &str, incident_id: &str) -> PostMortemResul
 
         let lessons: Vec<String> = v["lessons_learned"].as_array()
             .map(|arr| arr.iter().filter_map(|l| l.as_str().map(|s| s.to_string())).collect())
-            .unwrap_or_else(|| vec!["분석 결과를 검토하세요.".to_string()]);
+            .unwrap_or_else(|| vec!["Review the analysis results.".to_string()]);
 
         PostMortemResult {
             incident_id: incident_id.to_string(),
@@ -210,7 +210,7 @@ pub fn parse_postmortem_result(text: &str, incident_id: &str) -> PostMortemResul
             fix_summary: String::new(),
             action_items: Vec::new(),
             runbook_updated: false,
-            lessons_learned: vec!["분석 완료. 상세 내용 검토 필요.".to_string()],
+            lessons_learned: vec!["Analysis complete. Detailed review required.".to_string()],
         }
     }
 }
@@ -242,18 +242,18 @@ mod tests {
             incident_id: "INC-001".to_string(),
             severity: "High".to_string(),
             duration_minutes: 45,
-            root_cause: "메모리 누수로 인한 OOM".to_string(),
-            timeline: "14:00 이상 감지, 14:05 롤백".to_string(),
-            impact: "API 응답 불가 5분".to_string(),
-            fix_summary: "메모리 풀 설정 수정".to_string(),
+            root_cause: "OOM due to memory leak".to_string(),
+            timeline: "Anomaly detected at 14:00, rolled back at 14:05".to_string(),
+            impact: "API unavailable for 5 minutes".to_string(),
+            fix_summary: "Fixed memory pool settings".to_string(),
             action_items: vec![ActionItem {
-                title: "메모리 알람 추가".to_string(),
+                title: "Add memory alert".to_string(),
                 owner: "SRE".to_string(),
                 due_date: "2026-04-30".to_string(),
                 priority: "High".to_string(),
             }],
             runbook_updated: true,
-            lessons_learned: vec!["메모리 모니터링 중요".to_string()],
+            lessons_learned: vec!["Memory monitoring is important".to_string()],
         }
     }
 
@@ -270,7 +270,7 @@ mod tests {
     fn test_render_contains_action_items() {
         let result = make_result();
         let rendered = result.render();
-        assert!(rendered.contains("메모리 알람 추가"));
+        assert!(rendered.contains("Add memory alert"));
         assert!(rendered.contains("SRE"));
     }
 
@@ -279,13 +279,13 @@ mod tests {
         let json = r#"{
             "severity": "Critical",
             "duration_minutes": 120,
-            "root_cause": "DB 연결 풀 고갈",
-            "timeline": "타임라인",
-            "impact": "전체 서비스 다운",
-            "fix_summary": "연결 풀 크기 증가",
-            "action_items": [{"title":"알람","owner":"SRE","due_date":"2026-05-01","priority":"High"}],
+            "root_cause": "DB connection pool exhaustion",
+            "timeline": "timeline",
+            "impact": "Complete service outage",
+            "fix_summary": "Increased connection pool size",
+            "action_items": [{"title":"Add alert","owner":"SRE","due_date":"2026-05-01","priority":"High"}],
             "runbook_updated": true,
-            "lessons_learned": ["연결 풀 모니터링 필요"]
+            "lessons_learned": ["Connection pool monitoring required"]
         }"#;
         let result = parse_postmortem_result(json, "INC-TEST");
         assert_eq!(result.severity, "Critical");
@@ -296,14 +296,14 @@ mod tests {
 
     #[test]
     fn test_parse_postmortem_invalid_json_fallback() {
-        let result = parse_postmortem_result("파싱 불가 텍스트", "INC-FALLBACK");
+        let result = parse_postmortem_result("unparseable text", "INC-FALLBACK");
         assert_eq!(result.incident_id, "INC-FALLBACK");
         assert_eq!(result.severity, "Unknown");
         assert!(!result.runbook_updated);
     }
 }
 
-// ── 단독 실행용 시스템 프롬프트 ─────────────────────────────────────────────
+// ── Standalone execution system prompt ──────────────────────────────────────
 pub async fn run_sre_standalone(
     client: &OllamaClient,
     task: &str,
@@ -312,7 +312,7 @@ pub async fn run_sre_standalone(
     let _hub = NodeHub::new();
     run_agent_simple(
         client,
-        &format!("모델: {}\n\n{}\n\n{}",
+        &format!("Model: {}\n\n{}\n\n{}",
             client.model(),
             crate::agent::tools::tool_descriptions(),
             AgileRole::SRE.system_prompt("")),

@@ -1,7 +1,7 @@
-/// 공통 유틸리티
+/// Common utilities
 
-/// UTF-8 경계를 안전하게 지키며 문자열을 `max_bytes` 바이트로 자릅니다.
-/// 멀티바이트 문자 중간에서 자르지 않습니다.
+/// Truncates a string to `max_bytes` bytes while safely respecting UTF-8 boundaries.
+/// Never cuts in the middle of a multi-byte character.
 #[inline]
 pub fn trunc(s: &str, max_bytes: usize) -> &str {
     if s.len() <= max_bytes {
@@ -14,8 +14,8 @@ pub fn trunc(s: &str, max_bytes: usize) -> &str {
     &s[..end]
 }
 
-/// 문자열을 `max_bytes` 바이트로 자르고 잘렸으면 suffix 추가.
-/// 소유한 String을 반환합니다.
+/// Truncates a string to `max_bytes` bytes and appends suffix if truncated.
+/// Returns an owned String.
 pub fn trunc_owned(s: &str, max_bytes: usize, suffix: &str) -> String {
     if s.len() <= max_bytes {
         s.to_string()
@@ -24,7 +24,7 @@ pub fn trunc_owned(s: &str, max_bytes: usize, suffix: &str) -> String {
     }
 }
 
-/// 터미널 미리보기용: 줄바꿈을 ↵로 치환하고 max_bytes로 자름.
+/// For terminal preview: replaces newlines with ↵ and truncates to max_bytes.
 pub fn preview(s: &str, max_bytes: usize) -> String {
     let replaced = s.replace('\n', "↵");
     trunc_owned(&replaced, max_bytes, "...")
@@ -56,7 +56,7 @@ mod tests {
 
     #[test]
     fn trunc_multibyte_korean() {
-        // "안녕" = 6 bytes (3 bytes each), trunc at 5 should give "안" (3 bytes)
+        // "안녕" = 6 bytes (3 bytes each), truncating at 5 should give "안" (3 bytes)
         let s = "안녕하세요";
         let t = trunc(s, 5);
         assert!(s.is_char_boundary(t.len()), "must end on char boundary");

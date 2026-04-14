@@ -1,28 +1,28 @@
-//! 실시간 시스템 모니터링
+//! Real-time system monitoring
 //!
-//! CLI 상태 표시줄에 다음 정보를 표시:
-//!   - 토큰 사용량 및 컨텍스트 사용률
-//!   - AI 모델 상태 (Ollama)
-//!   - GPU 점유율 (nvidia-smi 또는 rocm-smi)
-//!   - CPU / 메모리 점유율
+//! Displays the following information in the CLI status bar:
+//!   - Token usage and context utilization
+//!   - AI model status (Ollama)
+//!   - GPU utilization (nvidia-smi or rocm-smi)
+//!   - CPU / memory utilization
 
 use std::time::Duration;
 
-// ─── 시스템 상태 스냅샷 ──────────────────────────────────────────────────────
+// ─── System stats snapshot ───────────────────────────────────────────────────
 
 #[derive(Debug, Clone, Default)]
 pub struct SystemStats {
-    pub cpu_pct: f32,         // CPU 사용률 (%)
-    pub mem_used_mb: u64,     // 사용 메모리 (MB)
-    pub mem_total_mb: u64,    // 전체 메모리 (MB)
-    pub gpu_pct: Option<f32>, // GPU 사용률 (%, None이면 GPU 없음)
+    pub cpu_pct: f32,         // CPU utilization (%)
+    pub mem_used_mb: u64,     // Used memory (MB)
+    pub mem_total_mb: u64,    // Total memory (MB)
+    pub gpu_pct: Option<f32>, // GPU utilization (%, None if no GPU)
     pub gpu_mem_used_mb: Option<u64>,
     pub gpu_mem_total_mb: Option<u64>,
     pub gpu_name: Option<String>,
 }
 
 impl SystemStats {
-    /// /proc/stat 및 /proc/meminfo 에서 시스템 통계 수집
+    /// Collect system stats from /proc/stat and /proc/meminfo
     pub fn collect() -> Self {
         let mut stats = Self::default();
         stats.mem_used_mb = collect_mem_used();
@@ -36,7 +36,7 @@ impl SystemStats {
         stats
     }
 
-    /// 한 줄 상태 문자열 생성
+    /// Generate a single-line status string
     pub fn status_line(&self) -> String {
         let cpu = format!("CPU:{:.0}%", self.cpu_pct);
         let mem = if self.mem_total_mb > 0 {
@@ -62,10 +62,10 @@ impl SystemStats {
     }
 }
 
-// ─── CPU 수집 (/proc/stat) ───────────────────────────────────────────────────
+// ─── CPU collection (/proc/stat) ─────────────────────────────────────────────
 
 fn collect_cpu_pct() -> f32 {
-    // /proc/stat 두 번 읽어 델타 계산
+    // Read /proc/stat twice to compute delta
     let snap1 = read_cpu_stat();
     std::thread::sleep(Duration::from_millis(100));
     let snap2 = read_cpu_stat();
@@ -84,7 +84,7 @@ fn read_cpu_stat() -> Option<(u64, u64)> {
     let content = std::fs::read_to_string("/proc/stat").ok()?;
     let line = content.lines().next()?;  // "cpu  ..."
     let nums: Vec<u64> = line.split_whitespace()
-        .skip(1)  // "cpu" 건너뜀
+        .skip(1)  // skip "cpu"
         .filter_map(|s| s.parse().ok())
         .collect();
     if nums.len() < 4 { return None; }
@@ -94,7 +94,7 @@ fn read_cpu_stat() -> Option<(u64, u64)> {
     Some((idle, total))
 }
 
-// ─── 메모리 수집 (/proc/meminfo) ─────────────────────────────────────────────
+// ─── Memory collection (/proc/meminfo) ───────────────────────────────────────
 
 fn parse_meminfo_kb(content: &str, key: &str) -> Option<u64> {
     content.lines()
@@ -116,14 +116,14 @@ fn collect_mem_used() -> u64 {
     total.saturating_sub(avail) / 1024
 }
 
-// ─── GPU 수집 (nvidia-smi / rocm-smi) ───────────────────────────────────────
+// ─── GPU collection (nvidia-smi / rocm-smi) ───────────────────────────────────
 
 fn collect_gpu() -> (Option<f32>, Option<u64>, Option<u64>, Option<String>) {
-    // NVIDIA 먼저 시도
+    // Try NVIDIA first
     if let Some(result) = try_nvidia_smi() {
         return result;
     }
-    // AMD ROCm 시도
+    // Try AMD ROCm
     if let Some(result) = try_rocm_smi() {
         return result;
     }
@@ -161,7 +161,7 @@ fn try_rocm_smi() -> Option<(Option<f32>, Option<u64>, Option<u64>, Option<Strin
 
     if !output.status.success() { return None; }
     let text = String::from_utf8_lossy(&output.stdout);
-    // rocm-smi CSV Parsing (간단)
+    // rocm-smi CSV parsing (simple)
     for line in text.lines().skip(1) {
         let parts: Vec<&str> = line.split(',').map(|s| s.trim()).collect();
         if parts.len() >= 3 {
@@ -172,7 +172,7 @@ fn try_rocm_smi() -> Option<(Option<f32>, Option<u64>, Option<u64>, Option<Strin
     None
 }
 
-// ─── Ollama 모델 상태 ────────────────────────────────────────────────────────
+// ─── Ollama model status ──────────────────────────────────────────────────────
 
 #[derive(Debug, Clone)]
 pub struct ModelStatus {
@@ -182,7 +182,7 @@ pub struct ModelStatus {
     pub context_tokens: Option<usize>,
 }
 
-/// ollama ps 를 Parsing하여 현재 실행 중인 모델 정보 반환
+/// Parse `ollama ps` output and return information about the currently running model
 pub async fn get_model_status(model_name: &str) -> ModelStatus {
     let output = tokio::process::Command::new("ollama")
         .arg("ps")
@@ -198,13 +198,13 @@ pub async fn get_model_status(model_name: &str) -> ModelStatus {
 
     if let Ok(out) = output {
         let text = String::from_utf8_lossy(&out.stdout);
-        for line in text.lines().skip(1) {  // 헤더 건너뜀
+        for line in text.lines().skip(1) {  // skip header
             if line.contains(model_name) {
                 status.running = true;
-                // "NAME    ID    SIZE    PROCESSOR    UNTIL" 형식 Parsing
+                // Parse "NAME    ID    SIZE    PROCESSOR    UNTIL" format
                 let parts: Vec<&str> = line.split_whitespace().collect();
                 if let Some(size_str) = parts.get(2) {
-                    // "4.2 GB" → MB 변환
+                    // Convert "4.2 GB" → MB
                     if let Some(size_mb) = parse_size_to_mb(size_str, parts.get(3).copied()) {
                         status.vram_mb = Some(size_mb);
                     }
@@ -227,10 +227,10 @@ fn parse_size_to_mb(num: &str, unit: Option<&str>) -> Option<u64> {
     Some(mb)
 }
 
-// ─── 실시간 상태 표시 ────────────────────────────────────────────────────────
+// ─── Real-time status display ─────────────────────────────────────────────────
 
-/// 채팅 루프 상태 표시줄 출력
-/// 한 줄로 현재 상태를 표시하고 커서를 줄 앞으로 이동 (덮어쓰기 가능)
+/// Print status bar for the chat loop
+/// Displays current state on a single line and moves cursor to line start (overwritable)
 pub fn print_status_bar(
     token_used: usize,
     token_total: usize,
@@ -257,7 +257,7 @@ pub fn print_status_bar(
         if sys_str.is_empty() { String::new() } else { format!("  {}", sys_str) },
     );
 
-    // 터미널 너비에 맞춰 자름
+    // Truncate to terminal width
     let max_width = terminal_width().min(200);
     let truncated = crate::utils::trunc(&line, max_width);
     print!("{}\r\n", truncated);
@@ -271,7 +271,7 @@ fn make_bar(pct: usize, width: usize) -> String {
 }
 
 fn terminal_width() -> usize {
-    // ioctl로 터미널 너비 구하기 (실패 시 기본값)
+    // Get terminal width via ioctl (fallback to default on failure)
     if let Ok(output) = std::process::Command::new("tput").arg("cols").output() {
         if let Ok(s) = String::from_utf8(output.stdout) {
             if let Ok(n) = s.trim().parse::<usize>() {
@@ -282,9 +282,9 @@ fn terminal_width() -> usize {
     120
 }
 
-// ─── 백그라운드 모니터 ───────────────────────────────────────────────────────
+// ─── Background monitor ───────────────────────────────────────────────────────
 
-/// 주기적으로 시스템 상태를 수집하여 공유 Arc에 저장
+/// Periodically collect system stats and store them in a shared Arc
 pub fn start_background_monitor(
     interval_ms: u64,
 ) -> (Arc<std::sync::Mutex<SystemStats>>, tokio::task::JoinHandle<()>) {

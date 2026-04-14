@@ -1,18 +1,18 @@
-//! Skill 로더 — 마크다운 기반 skill 파일을 로드하고 관리
+//! Skill loader — loads and manages markdown-based skill files
 //!
-//! Skill 파일 위치:
-//!   ~/.claude/skills/*.md  — 전역 스킬
-//!   ./.claude/skills/*.md  — 프로젝트 스킬
+//! Skill file locations:
+//!   ~/.claude/skills/*.md  — global skills
+//!   ./.claude/skills/*.md  — project skills
 //!
-//! Skill 파일 형식 (마크다운):
+//! Skill file format (markdown):
 //! ```markdown
 //! ---
 //! name: commit
-//! description: AI 커밋 메시지 자동 생성
+//! description: Auto-generate AI commit message
 //! args: [message]
 //! ---
 //!
-//! 다음 git diff를 보고 커밋 메시지를 작성하세요:
+//! Review the following git diff and write a commit message:
 //! {{message}}
 //! ```
 
@@ -20,31 +20,31 @@ use anyhow::Result;
 use serde::Deserialize;
 use std::collections::HashMap;
 
-// ─── Skill 정의 ──────────────────────────────────────────────────────────────
+// ─── Skill definition ──────────────────────────────────────────────────────────────
 
 #[derive(Debug, Clone)]
 pub struct Skill {
     pub name: String,
     pub description: String,
-    pub args: Vec<String>,       // 파라미터 이름 목록
-    pub prompt_template: String, // {{arg}} 형태의 템플릿
-    pub source_path: String,     // 로드된 파일 경로
+    pub args: Vec<String>,       // parameter name list
+    pub prompt_template: String, // template with {{arg}} placeholders
+    pub source_path: String,     // path of loaded file
 }
 
 impl Skill {
-    /// 인자를 적용하여 최종 프롬프트 생성
+    /// Apply args to produce final prompt
     pub fn expand(&self, args: &[&str]) -> String {
         let mut prompt = self.prompt_template.clone();
-        // 위치 인자: {{0}}, {{1}} 또는 이름 인자: {{arg_name}}
+        // Positional args: {{0}}, {{1}} or named args: {{arg_name}}
         for (i, (param, value)) in self.args.iter().zip(args.iter()).enumerate() {
             prompt = prompt.replace(&format!("{{{{{}}}}}", param), value);
             prompt = prompt.replace(&format!("{{{{{}}}}}", i), value);
         }
-        // 남은 위치 인자
+        // Remaining positional args
         for (i, value) in args.iter().enumerate() {
             prompt = prompt.replace(&format!("{{{{{}}}}}", i), value);
         }
-        // 나머지 args를 한 문자열로 합쳐서 {{args}} 치환
+        // Join remaining args as one string and substitute {{args}}
         let all_args = args.join(" ");
         prompt = prompt.replace("{{args}}", &all_args);
         prompt
@@ -61,7 +61,7 @@ struct SkillFrontmatter {
 }
 
 fn parse_skill_file(content: &str, path: &str) -> Option<Skill> {
-    // frontmatter가 ---로 시작하는지 확인
+    // Check if frontmatter starts with ---
     let content = content.trim();
     if !content.starts_with("---") {
         return None;
@@ -72,7 +72,7 @@ fn parse_skill_file(content: &str, path: &str) -> Option<Skill> {
     let frontmatter_str = after_first[..end].trim();
     let body = after_first[end + 3..].trim().to_string();
 
-    // 간단한 YAML Parsing (serde_yaml 없이)
+    // Simple YAML parsing (without serde_yaml)
     let fm = parse_simple_yaml(frontmatter_str)?;
 
     Some(Skill {
@@ -84,7 +84,7 @@ fn parse_skill_file(content: &str, path: &str) -> Option<Skill> {
     })
 }
 
-/// serde_yaml 없이 간단한 YAML Parsing
+/// Simple YAML parsing without serde_yaml
 fn parse_simple_yaml(yaml: &str) -> Option<SkillFrontmatter> {
     let mut map: HashMap<String, String> = HashMap::new();
     let mut current_list_key: Option<String> = None;
@@ -93,24 +93,24 @@ fn parse_simple_yaml(yaml: &str) -> Option<SkillFrontmatter> {
     for line in yaml.lines() {
         if line.trim().is_empty() { continue; }
 
-        // 리스트 아이템
+        // List item
         if let Some(item) = line.trim().strip_prefix("- ") {
             list_items.push(item.trim_matches('"').to_string());
             continue;
         }
 
-        // 이전 리스트 저장
+        // Save previous list
         if let Some(key) = current_list_key.take() {
             map.insert(key, serde_json::to_string(&list_items).unwrap_or_default());
             list_items.clear();
         }
 
-        // 키: 값
+        // key: value
         if let Some((key, value)) = line.split_once(':') {
             let k = key.trim().to_string();
             let v = value.trim().trim_matches('"').to_string();
             if v.is_empty() {
-                // 다음 줄이 리스트일 수 있음
+                // Next line may be a list
                 current_list_key = Some(k);
             } else {
                 map.insert(k, v);
@@ -118,7 +118,7 @@ fn parse_simple_yaml(yaml: &str) -> Option<SkillFrontmatter> {
         }
     }
 
-    // 마지막 리스트 저장
+    // Save last list
     if let Some(key) = current_list_key {
         map.insert(key, serde_json::to_string(&list_items).unwrap_or_default());
     }
@@ -131,7 +131,7 @@ fn parse_simple_yaml(yaml: &str) -> Option<SkillFrontmatter> {
     Some(SkillFrontmatter { name, description, args })
 }
 
-// ─── Skill 레지스트리 ────────────────────────────────────────────────────────
+// ─── Skill registry ────────────────────────────────────────────────────────
 
 pub struct SkillRegistry {
     skills: HashMap<String, Skill>,
@@ -142,15 +142,15 @@ impl SkillRegistry {
         Self { skills: HashMap::new() }
     }
 
-    /// 전역 및 프로젝트 스킬 디렉토리에서 자동 로드
+    /// Auto-load from global and project skill directories
     pub fn load_all(&mut self) -> usize {
-        // 전역: ~/.claude/skills/
+        // Global: ~/.claude/skills/
         if let Ok(home) = std::env::var("HOME") {
             let global_dir = std::path::PathBuf::from(home).join(".claude").join("skills");
             self.load_from_dir(&global_dir);
         }
 
-        // 프로젝트: ./.claude/skills/
+        // Project: ./.claude/skills/
         let project_dir = std::path::PathBuf::from(".claude").join("skills");
         self.load_from_dir(&project_dir);
 
@@ -172,19 +172,19 @@ impl SkillRegistry {
         }
     }
 
-    /// 이름으로 스킬 조회
+    /// Find skill by name
     pub fn get(&self, name: &str) -> Option<&Skill> {
         self.skills.get(name)
     }
 
-    /// 전체 스킬 목록
+    /// Full skill list
     pub fn all(&self) -> Vec<&Skill> {
         let mut list: Vec<&Skill> = self.skills.values().collect();
         list.sort_by(|a, b| a.name.cmp(&b.name));
         list
     }
 
-    /// 스킬 수
+    /// Number of skills
     pub fn len(&self) -> usize {
         self.skills.len()
     }
@@ -193,33 +193,33 @@ impl SkillRegistry {
         self.skills.is_empty()
     }
 
-    /// AI 시스템 프롬프트에 추가할 스킬 설명
+    /// Generate skill descriptions to add to AI system prompt
     pub fn descriptions_for_prompt(&self) -> String {
         if self.skills.is_empty() {
             return String::new();
         }
         let mut lines = vec![
-            "\n## 등록된 스킬".to_string(),
-            "스킬 실행: /skill <name> [args...]".to_string(),
+            "\n## Registered skills".to_string(),
+            "Execute skill: /skill <name> [args...]".to_string(),
             String::new(),
         ];
         for skill in self.all() {
             let args_str = if skill.args.is_empty() {
                 String::new()
             } else {
-                format!(" (인자: {})", skill.args.join(", "))
+                format!(" (args: {})", skill.args.join(", "))
             };
             lines.push(format!("- **{}**{}: {}", skill.name, args_str, skill.description));
         }
         lines.join("\n")
     }
 
-    /// 인라인으로 스킬 추가 (테스트 및 프로그래매틱 용)
+    /// Add skill inline (for testing and programmatic use)
     pub fn register(&mut self, skill: Skill) {
         self.skills.insert(skill.name.clone(), skill);
     }
 
-    /// 디렉토리에 새 스킬 파일 생성
+    /// Create new skill file in directory
     pub fn create_skill_file(name: &str, description: &str, args: &[&str], template: &str) -> Result<String> {
         let dir = std::path::PathBuf::from(".claude").join("skills");
         std::fs::create_dir_all(&dir)?;
@@ -257,45 +257,45 @@ mod tests {
 
     #[test]
     fn skill_expand_named_args() {
-        let skill = make_skill("commit", &["message"], "커밋 메시지를 작성하세요:\n{{message}}");
+        let skill = make_skill("commit", &["message"], "Write a commit message:\n{{message}}");
         let result = skill.expand(&["Fix bug in login"]);
-        assert_eq!(result, "커밋 메시지를 작성하세요:\nFix bug in login");
+        assert_eq!(result, "Write a commit message:\nFix bug in login");
     }
 
     #[test]
     fn skill_expand_positional_index() {
-        let skill = make_skill("greet", &[], "안녕하세요 {{0}}님, {{1}}입니다.");
-        let result = skill.expand(&["홍길동", "반갑습니다"]);
-        assert_eq!(result, "안녕하세요 홍길동님, 반갑습니다입니다.");
+        let skill = make_skill("greet", &[], "Hello {{0}}, this is {{1}}.");
+        let result = skill.expand(&["Alice", "Nice to meet you"]);
+        assert_eq!(result, "Hello Hong Gildong, this is Nice to meet you.");
     }
 
     #[test]
     fn skill_expand_all_args_placeholder() {
-        let skill = make_skill("echo", &[], "입력: {{args}}");
+        let skill = make_skill("echo", &[], "Input: {{args}}");
         let result = skill.expand(&["hello", "world"]);
-        assert_eq!(result, "입력: hello world");
+        assert_eq!(result, "Input: hello world");
     }
 
     #[test]
     fn skill_expand_no_args_returns_template() {
-        let skill = make_skill("noop", &[], "빈 템플릿");
+        let skill = make_skill("noop", &[], "Empty template");
         let result = skill.expand(&[]);
-        assert_eq!(result, "빈 템플릿");
+        assert_eq!(result, "Empty template");
     }
 
     #[test]
     fn parse_skill_file_basic() {
-        let content = "---\nname: test\ndescription: 테스트 스킬\n---\n\n프롬프트 내용";
+        let content = "---\nname: test\ndescription: test skill\n---\n\nprompt content";
         let skill = parse_skill_file(content, "test.md").unwrap();
         assert_eq!(skill.name, "test");
-        assert_eq!(skill.description, "테스트 스킬");
-        assert_eq!(skill.prompt_template, "프롬프트 내용");
+        assert_eq!(skill.description, "test skill");
+        assert_eq!(skill.prompt_template, "prompt content");
         assert!(skill.args.is_empty());
     }
 
     #[test]
     fn parse_skill_file_with_args() {
-        let content = "---\nname: review\ndescription: 코드 리뷰\nargs:\n  - code\n  - lang\n---\n\n{{code}}를 {{lang}}로 리뷰";
+        let content = "---\nname: review\ndescription: code review\nargs:\n  - code\n  - lang\n---\n\nReview {{code}} in {{lang}}";
         let skill = parse_skill_file(content, "review.md").unwrap();
         assert_eq!(skill.args, vec!["code", "lang"]);
         assert!(skill.prompt_template.contains("{{code}}"));
@@ -303,14 +303,14 @@ mod tests {
 
     #[test]
     fn parse_skill_file_no_frontmatter_returns_none() {
-        let content = "그냥 마크다운 텍스트입니다.";
+        let content = "Plain markdown text.";
         assert!(parse_skill_file(content, "bad.md").is_none());
     }
 
     #[test]
     fn registry_register_and_get() {
         let mut registry = SkillRegistry::new();
-        let skill = make_skill("hello", &[], "안녕");
+        let skill = make_skill("hello", &[], "Hello");
         registry.register(skill);
         assert!(registry.get("hello").is_some());
         assert!(registry.get("unknown").is_none());

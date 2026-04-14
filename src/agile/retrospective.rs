@@ -2,7 +2,7 @@
 //!
 //! Official Scrum retrospective: Keep / Problem / Try (KPT) format
 //!
-//! 흐름:
+//! Flow:
 //!   ScrumMaster  → Facilitate retrospective + collect data
 //!   Each role → submit feedback from own perspective (single turn)
 //!   ScrumMaster  → Synthesis + next sprint action items
@@ -45,13 +45,13 @@ impl RetroResult {
 
         format!(
             "\n╔══════════════════════════════════════════════════╗\n\
-             ║  🔄 스프린트 회고 — {}                            \n\
+             ║  🔄 Sprint Retrospective — {}                     \n\
              ╚══════════════════════════════════════════════════╝\n\
-             팀 건강도: {}/10  |  속도 트렌드: {}\n\n\
-             ✅ 잘된 것 ({}):\n{}\n\n\
-             ⚠️  문제점 ({}):\n{}\n\n\
-             🎯 다음 스프린트 액션 ({}):\n{}\n\n\
-             🚀 다음 스프린트 포커스:\n  {}\n",
+             Team health: {}/10  |  Velocity trend: {}\n\n\
+             ✅ What went well ({}):\n{}\n\n\
+             ⚠️  Problems ({}):\n{}\n\n\
+             🎯 Next sprint actions ({}):\n{}\n\n\
+             🚀 Next sprint focus:\n  {}\n",
             self.sprint_id,
             self.team_health_score, self.velocity_trend,
             self.went_well.len(), well.join("\n"),
@@ -79,16 +79,16 @@ pub async fn run_retrospective(
         .unwrap_or_else(|| "LATEST".to_string());
 
     let board_summary = format!(
-        "프로젝트: {}\n스프린트: {}\n\n{}",
+        "Project: {}\nSprint: {}\n\n{}",
         state_guard.project_name,
         actual_sprint_id,
         board_render_for_retro(&state_guard),
     );
     drop(state_guard);
 
-    on_progress(&format!("\n🔄 ══ 스프린트 회고 시작: {} ══", actual_sprint_id));
+    on_progress(&format!("\n🔄 ══ Sprint retrospective starting: {} ══", actual_sprint_id));
 
-    // 회고에 참여하는 역할 목록
+    // Roles participating in the retrospective
     let retro_roles = [
         AgileRole::Developer,
         AgileRole::QAEngineer,
@@ -101,30 +101,30 @@ pub async fn run_retrospective(
     let mut perspectives: Vec<RolePerspective> = Vec::new();
     let mut all_feedback = String::new();
 
-    // ── 각 역할에서 단일 턴 피드백 수집 ─────────────────────────────────────
+    // ── Collect single-turn feedback from each role ──────────────────────────────
     for role in &retro_roles {
-        on_progress(&format!("  {} {} 관점 수집 중...", role.icon(), role.name()));
+        on_progress(&format!("  {} {} perspective gathering...", role.icon(), role.name()));
 
         let prompt = format!(
-            "당신은 {} 역할로 방금 끝난 스프린트를 회고합니다.\n\n\
-             스프린트 정보:\n{}\n\n\
-             KPT 형식으로 간결하게 답하세요 (각 항목 2-3개):\n\
-             JSON 출력:\n\
+            "You are reviewing the just-completed sprint as the {} role.\n\n\
+             Sprint info:\n{}\n\n\
+             Answer concisely in KPT format (2-3 items each):\n\
+             JSON output:\n\
              {{\n\
-               \"went_well\": [\"잘 된 것\"],\n\
-               \"problems\": [\"문제점\"],\n\
-               \"suggestions\": [\"개선 제안\"]\n\
+               \"went_well\": [\"what went well\"],\n\
+               \"problems\": [\"problems\"],\n\
+               \"suggestions\": [\"improvement suggestions\"]\n\
              }}",
             role.name(),
             crate::utils::trunc(&board_summary, 1500),
         );
 
-        let system = format!("모델: {}\n\n{}", client.model(), role.system_prompt(""));
+        let system = format!("Model: {}\n\n{}", client.model(), role.system_prompt(""));
         let output = run_agent_simple(client, &system, &prompt, 3, &on_progress).await;
 
         let perspective = parse_perspective(&output, role.name());
         all_feedback.push_str(&format!(
-            "\n=== {} 피드백 ===\n잘된것: {}\n문제: {}\n제안: {}\n",
+            "\n=== {} feedback ===\nWent well: {}\nProblems: {}\nSuggestions: {}\n",
             role.name(),
             perspective.went_well.join(", "),
             perspective.problems.join(", "),
@@ -133,28 +133,28 @@ pub async fn run_retrospective(
         perspectives.push(perspective);
     }
 
-    // ── ScrumMaster — 종합 ───────────────────────────────────────────────────
-    on_progress("🏃 ScrumMaster: 회고 종합 및 액션 아이템 도출 중...");
+    // ── ScrumMaster — synthesis ──────────────────────────────────────────────────
+    on_progress("🏃 ScrumMaster: Synthesizing retrospective and deriving action items...");
 
     let sm_prompt = format!(
-        "당신은 ScrumMaster로 팀 회고를 종합합니다.\n\n\
-         스프린트 정보:\n{}\n\n\
-         팀 피드백:\n{}\n\n\
-         종합하여 다음 스프린트 개선 계획을 수립하세요.\n\
-         JSON 출력:\n\
+        "You are the ScrumMaster synthesizing the team retrospective.\n\n\
+         Sprint info:\n{}\n\n\
+         Team feedback:\n{}\n\n\
+         Synthesize and create an improvement plan for the next sprint.\n\
+         JSON output:\n\
          {{\n\
-           \"went_well\": [\"종합된 잘된 것\"],\n\
-           \"problems\": [\"종합된 문제점\"],\n\
-           \"action_items\": [\"SMART 액션 아이템\"],\n\
-           \"next_sprint_focus\": \"다음 스프린트 핵심 목표\",\n\
-           \"velocity_trend\": \"상승|유지|하락|측정불가\",\n\
+           \"went_well\": [\"synthesized went well\"],\n\
+           \"problems\": [\"synthesized problems\"],\n\
+           \"action_items\": [\"SMART action items\"],\n\
+           \"next_sprint_focus\": \"next sprint core objective\",\n\
+           \"velocity_trend\": \"rising|stable|declining|unmeasurable\",\n\
            \"team_health_score\": 8\n\
          }}",
         crate::utils::trunc(&board_summary, 1000),
         crate::utils::trunc(&all_feedback, 2000),
     );
 
-    let sm_system = format!("모델: {}\n\n{}", client.model(),
+    let sm_system = format!("Model: {}\n\n{}", client.model(),
         AgileRole::ScrumMaster.system_prompt(""));
     let sm_output = run_agent_simple(client, &sm_system, &sm_prompt, 4, &on_progress).await;
 
@@ -204,9 +204,9 @@ pub fn parse_retro_result_pub(
             problems: str_array(&v["problems"]),
             action_items: str_array(&v["action_items"]),
             next_sprint_focus: v["next_sprint_focus"].as_str()
-                .unwrap_or("품질 개선 집중").to_string(),
+                .unwrap_or("Focus on quality improvement").to_string(),
             velocity_trend: v["velocity_trend"].as_str()
-                .unwrap_or("측정불가").to_string(),
+                .unwrap_or("unmeasurable").to_string(),
             team_health_score: v["team_health_score"].as_u64()
                 .unwrap_or(7).min(10) as u8,
             perspectives,
@@ -214,11 +214,11 @@ pub fn parse_retro_result_pub(
     } else {
         RetroResult {
             sprint_id: sprint_id.to_string(),
-            went_well: vec!["스프린트 완료".to_string()],
-            problems: vec!["회고 파싱 실패".to_string()],
-            action_items: vec!["수동 회고 필요".to_string()],
-            next_sprint_focus: "개선 필요".to_string(),
-            velocity_trend: "측정불가".to_string(),
+            went_well: vec!["Sprint completed".to_string()],
+            problems: vec!["Retrospective parsing failed".to_string()],
+            action_items: vec!["Manual retrospective required".to_string()],
+            next_sprint_focus: "Improvement needed".to_string(),
+            velocity_trend: "unmeasurable".to_string(),
             team_health_score: 5,
             perspectives,
         }
@@ -241,7 +241,7 @@ fn board_render_for_retro(state: &crate::agile::board::BoardState) -> String {
         .map(|s| s.bug_reports.len()).sum();
 
     format!(
-        "완료 스토리: {}/{}\n총 버그: {}\n최근 활동:\n{}",
+        "Completed stories: {}/{}\nTotal bugs: {}\nRecent activity:\n{}",
         done, total, total_bugs,
         state.activity_log.iter().rev().take(10)
             .map(|a| format!("  {}", a.format()))
@@ -267,17 +267,17 @@ mod tests {
     fn test_retro_result_render_contains_sprint_id() {
         let result = RetroResult {
             sprint_id: "S5".to_string(),
-            went_well: vec!["빠른 배포".to_string()],
-            problems: vec!["테스트 부족".to_string()],
-            action_items: vec!["테스트 커버리지 80% 달성".to_string()],
-            next_sprint_focus: "품질 개선".to_string(),
-            velocity_trend: "상승".to_string(),
+            went_well: vec!["Fast deployment".to_string()],
+            problems: vec!["Insufficient testing".to_string()],
+            action_items: vec!["Achieve 80% test coverage".to_string()],
+            next_sprint_focus: "Quality improvement".to_string(),
+            velocity_trend: "rising".to_string(),
             team_health_score: 8,
             perspectives: vec![],
         };
         let rendered = result.render();
         assert!(rendered.contains("S5"));
-        assert!(rendered.contains("빠른 배포"));
+        assert!(rendered.contains("Fast deployment"));
         assert!(rendered.contains("8/10"));
     }
 
@@ -285,7 +285,7 @@ mod tests {
     fn test_team_health_score_clamp() {
         // parse_retro_result should clamp score to max 10
         let json_text = r#"{"went_well":[],"problems":[],"action_items":[],
-            "next_sprint_focus":"focus","velocity_trend":"상승","team_health_score":99}"#;
+            "next_sprint_focus":"focus","velocity_trend":"rising","team_health_score":99}"#;
         let result = super::parse_retro_result_pub(json_text, "S1", vec![]);
         assert!(result.team_health_score <= 10);
     }
@@ -299,9 +299,9 @@ mod tests {
 
     #[test]
     fn test_parse_perspective_valid_json() {
-        let json = r#"{"went_well":["배포 성공"],"problems":["버그 다수"],"suggestions":["자동화 테스트"]}"#;
+        let json = r#"{"went_well":["Deployment succeeded"],"problems":["Many bugs"],"suggestions":["Automated testing"]}"#;
         let perspective = parse_perspective(json, "QAEngineer");
-        assert_eq!(perspective.went_well, vec!["배포 성공"]);
-        assert_eq!(perspective.problems, vec!["버그 다수"]);
+        assert_eq!(perspective.went_well, vec!["Deployment succeeded"]);
+        assert_eq!(perspective.problems, vec!["Many bugs"]);
     }
 }

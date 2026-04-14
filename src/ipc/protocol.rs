@@ -1,26 +1,26 @@
-//! AI-to-AI 통신 프로토콜
+//! AI-to-AI communication protocol
 //!
-//! 다른 AI (Claude Code, Gemini, Grok, ChatGPT 등) 또는 자동화 도구가
-//! stdio 또는 HTTP로 이 에이전트를 호출할 수 있는 표준 프로토콜입니다.
+//! Other AIs (Claude Code, Gemini, Grok, ChatGPT, etc.) or automation tools can
+//! call this agent via stdio or HTTP using this standard protocol.
 //!
-//! 프로토콜:
-//!   - JSON-RPC 2.0 기반
-//!   - MCP (Model Context Protocol) 호환
-//!   - stdin/stdout (stdio 모드) 또는 HTTP POST (서버 모드)
+//! Protocol:
+//!   - JSON-RPC 2.0 based
+//!   - MCP (Model Context Protocol) compatible
+//!   - stdin/stdout (stdio mode) or HTTP POST (server mode)
 //!
-//! 지원 메서드:
-//!   initialize        — 핸드쉐이크 및 능력 협상
-//!   capabilities      — 지원 기능 목록
-//!   chat              — 일반 대화 요청
-//!   run_tool          — 툴 직접 실행
-//!   agile_sprint      — 애자일 Sprint 실행
-//!   board_status      — 애자일 보드 상태 조회
-//!   ping              — 연결 확인
+//! Supported methods:
+//!   initialize        — handshake and capability negotiation
+//!   capabilities      — list supported features
+//!   chat              — general conversation request
+//!   run_tool          — direct tool execution
+//!   agile_sprint      — agile sprint execution
+//!   board_status      — agile board status query
+//!   ping              — connection check
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-// ─── 능력 선언 ───────────────────────────────────────────────────────────────
+// ─── Capability declarations ───────────────────────────────────────────────────────────────
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentCapability {
@@ -31,16 +31,16 @@ pub struct AgentCapability {
 
 pub fn declare_capabilities() -> Vec<AgentCapability> {
     vec![
-        AgentCapability { name: "chat".into(), description: "일반 대화 및 코딩 지원".into(), version: "1.0".into() },
-        AgentCapability { name: "tools".into(), description: "파일 시스템, 쉘, git 등 툴 실행".into(), version: "1.0".into() },
-        AgentCapability { name: "agile".into(), description: "애자일 스프린트 및 보드 관리".into(), version: "1.0".into() },
-        AgentCapability { name: "multi_agent".into(), description: "다중 에이전트 파이프라인".into(), version: "1.0".into() },
-        AgentCapability { name: "mcp_proxy".into(), description: "MCP 서버 프록시".into(), version: "1.0".into() },
-        AgentCapability { name: "memory".into(), description: "영속 메모리 저장/조회".into(), version: "1.0".into() },
+        AgentCapability { name: "chat".into(), description: "General conversation and coding support".into(), version: "1.0".into() },
+        AgentCapability { name: "tools".into(), description: "File system, shell, git and other tool execution".into(), version: "1.0".into() },
+        AgentCapability { name: "agile".into(), description: "Agile sprint and board management".into(), version: "1.0".into() },
+        AgentCapability { name: "multi_agent".into(), description: "Multi-agent pipeline".into(), version: "1.0".into() },
+        AgentCapability { name: "mcp_proxy".into(), description: "MCP server proxy".into(), version: "1.0".into() },
+        AgentCapability { name: "memory".into(), description: "Persistent memory store/query".into(), version: "1.0".into() },
     ]
 }
 
-// ─── JSON-RPC 메시지 ─────────────────────────────────────────────────────────
+// ─── JSON-RPC messages ─────────────────────────────────────────────────────────
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct JsonRpcRequest {
@@ -82,13 +82,13 @@ impl JsonRpcResponse {
     }
 }
 
-// ─── 고수준 요청/응답 타입 ───────────────────────────────────────────────────
+// ─── High-level request/response types ───────────────────────────────────────────────────
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AgentRequest {
     pub method: String,
     pub params: HashMap<String, serde_json::Value>,
-    /// 호출자 AI 정보 (식별용)
+    /// Caller AI info (for identification)
     pub caller_id: Option<String>,
     pub caller_type: Option<String>,  // "claude-code", "gemini", "grok", "custom"
 }

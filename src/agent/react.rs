@@ -1,46 +1,46 @@
-//! 고도화된 ReAct 루프
+//! Enhanced ReAct loop
 #![allow(dead_code)]
 //!
-//! 표준 ReAct: Reason → Act → Observe
-//! 고도화:     Reason → Plan → Act → Observe → Verify → Reflect → (반복)
+//! Standard ReAct: Reason → Act → Observe
+//! Enhanced:  Reason → Plan → Act → Observe → Verify → Reflect → (repeat)
 //!
-//! 추가 기능:
-//! - 자동 검증: 각 툴 실행 후 결과가 예상과 일치하는지 확인
-//! - 반성 루프: 같은 오류가 반복되면 접근법을 변경
-//! - TDD 모드: 테스트 먼저 작성, 구현 후 검증
-//! - 의존성 분석: 코드 변경 전 영향 범위 파악
+//! Additional features:
+//! - Auto-verify: check if each tool result matches expectations
+//! - Reflection loop: change approach when the same error repeats
+//! - TDD mode: write tests first, implement, then verify
+//! - Impact analysis: assess blast radius before changing code
 
 use anyhow::Result;
 use crate::agent::ollama::OllamaClient;
 use crate::agent::tools::dispatch_tool;
 use crate::models::{AgentResponse, Message, ToolCall};
 
-// ─── ReAct 단계 ──────────────────────────────────────────────────────────────
+// ─── ReAct step ────────────────────────────────────────────────────────────────────────────
 
 #[derive(Debug, Clone)]
 pub struct ReActStep {
     pub thought: String,
-    pub action: Option<String>,     // 툴 이름
-    pub action_input: Vec<String>,  // 툴 인자
-    pub observation: String,        // 툴 실행 결과
-    pub verification: VerifyResult, // 검증 결과
+    pub action: Option<String>,     // tool name
+    pub action_input: Vec<String>,  // tool arguments
+    pub observation: String,        // tool execution result
+    pub verification: VerifyResult, // verification result
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum VerifyResult {
     NotNeeded,
     Pass,
-    Fail(String),  // 실패 이유
+    Fail(String),  // failure reason
 }
 
-// ─── ReAct 설정 ──────────────────────────────────────────────────────────────
+// ─── ReAct config ──────────────────────────────────────────────────────────────────────────
 
 pub struct ReActConfig {
     pub max_turns: usize,
-    pub max_retries_per_error: usize,  // 같은 에러 최대 재시도
-    pub verify_enabled: bool,          // 결과 자동 검증
-    pub tdd_mode: bool,                // TDD 모드
-    pub reflection_enabled: bool,      // 실패 반성 루프
+    pub max_retries_per_error: usize,  // max retries for the same error
+    pub verify_enabled: bool,          // enable auto-verification
+    pub tdd_mode: bool,                // TDD mode
+    pub reflection_enabled: bool,      // enable reflection loop on failure
 }
 
 impl Default for ReActConfig {
@@ -55,7 +55,7 @@ impl Default for ReActConfig {
     }
 }
 
-// ─── ReAct 실행 결과 ─────────────────────────────────────────────────────────
+// ─── ReAct execution result ──────────────────────────────────────────────────────────────
 
 pub struct ReActResult {
     pub final_answer: String,
@@ -64,7 +64,7 @@ pub struct ReActResult {
     pub success: bool,
 }
 
-// ─── 고도화 ReAct 루프 ───────────────────────────────────────────────────────
+// ─── Enhanced ReAct loop ───────────────────────────────────────────────────────────────────
 
 pub async fn run_react(
     client: &OllamaClient,
@@ -77,28 +77,28 @@ pub async fn run_react(
     let mut total_retries = 0usize;
     let mut reflection_msgs: Vec<String> = Vec::new();
 
-    // TDD 모드: 테스트 먼저
+    // TDD mode: write tests first
     if config.tdd_mode {
         inject_tdd_instruction(history);
     }
 
     for turn in 0..config.max_turns {
-        // 반성 내용이 있으면 히스토리에 주입
+        // inject reflection into history if available
         if !reflection_msgs.is_empty() {
             let reflection = format!(
-                "⚠️ 이전 시도 분석:\n{}\n\n다른 접근법을 시도하세요.",
+                "⚠️ Previous attempt analysis:\n{}\n\nTry a different approach.",
                 reflection_msgs.last().unwrap()
             );
             history.push(Message::tool(reflection));
             reflection_msgs.clear();
         }
 
-        // AI 응답 생성
+        // generate AI response
         let ai_text = match client.chat_stream(history.clone(), |_| {}).await {
             Ok(t) => t,
             Err(e) => {
                 return ReActResult {
-                    final_answer: format!("AI 오류: {}", e),
+                    final_answer: format!("AI error: {}", e),
                     steps,
                     retries: total_retries,
                     success: false,
@@ -108,7 +108,7 @@ pub async fn run_react(
 
         match crate::agent::chat::parse_response_pub(&ai_text) {
             AgentResponse::Exit | AgentResponse::Text(_) => {
-                // 최종 답변
+                // final answer
                 let step = ReActStep {
                     thought: ai_text.clone(),
                     action: None,
@@ -128,7 +128,7 @@ pub async fn run_react(
             }
 
             AgentResponse::ToolCall(tc) if tc.name == "__multi__" => {
-                // 다중 툴 처리
+                // handle multiple tools
                 history.push(Message::assistant(&ai_text));
                 let mut results = Vec::new();
                 for raw in &tc.args {
@@ -138,10 +138,10 @@ pub async fn run_react(
                         .map(|a| a.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect())
                         .unwrap_or_default();
                     let result = dispatch_tool(&ToolCall { name: name.clone(), args: args.clone() }).await;
-                    results.push(format!("툴 '{}' 결과:\n{}", name, result.output));
+                    results.push(format!("Tool '{}' result:\n{}", name, result.output));
 
                     let step = ReActStep {
-                        thought: format!("다중 툴: {}", name),
+                        thought: format!("Multi-tool: {}", name),
                         action: Some(name),
                         action_input: args,
                         observation: result.output,
@@ -154,11 +154,11 @@ pub async fn run_react(
             }
 
             AgentResponse::ToolCall(tc) => {
-                // 에러 빈도 체크
+                // check error frequency
                 let err_key = tc.name.clone();
                 let result = dispatch_tool(&tc).await;
 
-                // 검증
+                // verify
                 let verification = if config.verify_enabled {
                     verify_result(&tc.name, &tc.args, &result.output, result.success)
                 } else {
@@ -166,7 +166,7 @@ pub async fn run_react(
                 };
 
                 let step = ReActStep {
-                    thought: format!("턴 {}: {}", turn + 1, ai_text.lines().next().unwrap_or("")),
+                    thought: format!("Turn {}: {}", turn + 1, ai_text.lines().next().unwrap_or("")),
                     action: Some(tc.name.clone()),
                     action_input: tc.args.clone(),
                     observation: result.output.clone(),
@@ -177,37 +177,37 @@ pub async fn run_react(
 
                 history.push(Message::assistant(&ai_text));
 
-                // 실패 처리
+                // handle failure
                 if !result.success {
                     let count = error_counts.entry(err_key).or_insert(0);
                     *count += 1;
                     total_retries += 1;
 
                     if *count >= config.max_retries_per_error && config.reflection_enabled {
-                        // 반성 메시지 생성
+                        // generate reflection message
                         let reflection = generate_reflection(&steps);
                         reflection_msgs.push(reflection.clone());
                         history.push(Message::tool(format!(
-                            "툴 '{}' 결과:\n{}\n\n[{}번째 실패 — 접근법 변경 권장]",
+                            "Tool '{}' result:\n{}\n\n[Failure #{} — consider changing approach]",
                             tc.name, result.output, count
                         )));
-                        *count = 0; // 카운터 리셋
+                        *count = 0; // reset counter
                     } else {
                         history.push(Message::tool(format!(
-                            "툴 '{}' 결과 (실패):\n{}", tc.name, result.output
+                            "Tool '{}' result (failed):\n{}", tc.name, result.output
                         )));
                     }
                 } else if matches!(verification, VerifyResult::Fail(_)) {
-                    // 검증 실패: 경고와 함께 계속
+                    // verify failed: continue with warning
                     if let VerifyResult::Fail(ref reason) = verification {
                         history.push(Message::tool(format!(
-                            "툴 '{}' 결과:\n{}\n\n⚠️ 검증 경고: {}",
+                            "Tool '{}' result:\n{}\n\n⚠️ Verification warning: {}",
                             tc.name, result.output, reason
                         )));
                     }
                 } else {
                     history.push(Message::tool(format!(
-                        "툴 '{}' 결과:\n{}", tc.name, result.output
+                        "Tool '{}' result:\n{}", tc.name, result.output
                     )));
                 }
             }
@@ -215,16 +215,16 @@ pub async fn run_react(
     }
 
     ReActResult {
-        final_answer: "최대 턴 수 초과".to_string(),
+        final_answer: "Max turns exceeded".to_string(),
         steps,
         retries: total_retries,
         success: false,
     }
 }
 
-// ─── 검증 로직 ───────────────────────────────────────────────────────────────
+// ─── Verification logic ────────────────────────────────────────────────────────────────────
 
-/// 툴 실행 결과를 의미론적으로 검증
+/// Semantically verify a tool execution result
 fn verify_result(
     tool_name: &str,
     args: &[String],
@@ -232,52 +232,52 @@ fn verify_result(
     success: bool,
 ) -> VerifyResult {
     if !success {
-        return VerifyResult::Fail(format!("툴 실패: {}", crate::utils::trunc(output, 100)));
+        return VerifyResult::Fail(format!("Tool failed: {}", crate::utils::trunc(output, 100)));
     }
 
     match tool_name {
-        // 파일 쓰기 → 파일이 존재하는지 확인
+        // write_file → check the file exists
         "write_file" => {
             if let Some(path) = args.first() {
                 if !std::path::Path::new(path).exists() {
-                    return VerifyResult::Fail(format!("파일이 생성되지 않음: {}", path));
+                    return VerifyResult::Fail(format!("File was not created: {}", path));
                 }
             }
             VerifyResult::Pass
         }
 
-        // 빌드 → stderr에 error 없는지 확인
+        // build → check for no errors in stderr
         "run_shell" => {
             let lower = output.to_lowercase();
             if lower.contains("error[") || lower.contains("error:") {
-                // warning은 허용, error만 체크
+                // warnings are OK, only check for errors
                 let has_real_error = output.lines()
                     .any(|l| l.trim_start().starts_with("error") && !l.contains("warning"));
                 if has_real_error {
-                    return VerifyResult::Fail("빌드/실행 에러 감지".to_string());
+                    return VerifyResult::Fail("Build/run error detected".to_string());
                 }
             }
             VerifyResult::Pass
         }
 
-        // 테스트 → test result 확인
+        // tests → check test results
         "run_tests" => {
             if output.contains("FAILED") || output.contains("failures:") {
                 let failed: Vec<&str> = output.lines()
                     .filter(|l| l.contains("FAILED") || l.starts_with("test ") && l.ends_with("FAILED"))
                     .collect();
                 return VerifyResult::Fail(format!(
-                    "테스트 실패: {}",
+                    "Test failures: {}",
                     crate::utils::trunc(&failed.join(", "), 200)
                 ));
             }
             VerifyResult::Pass
         }
 
-        // git commit → 커밋 해시 확인
+        // git commit → check for commit hash
         "git_commit" | "git_commit_all" => {
             if !output.contains('[') {
-                return VerifyResult::Fail("커밋이 생성되지 않은 것 같음".to_string());
+                return VerifyResult::Fail("Commit does not appear to have been created".to_string());
             }
             VerifyResult::Pass
         }
@@ -286,16 +286,16 @@ fn verify_result(
     }
 }
 
-// ─── 반성 생성 ───────────────────────────────────────────────────────────────
+// ─── Reflection generation ────────────────────────────────────────────────────────────────
 
-/// 실패한 단계들을 분석하여 반성 메시지 생성
+/// Analyze failed steps and generate a reflection message
 fn generate_reflection(steps: &[ReActStep]) -> String {
     let failures: Vec<&ReActStep> = steps.iter()
         .filter(|s| matches!(s.verification, VerifyResult::Fail(_)))
         .collect();
 
     if failures.is_empty() {
-        return "반복 실패 감지 — 다른 접근법 시도".to_string();
+        return "Repeated failures detected — try a different approach".to_string();
     }
 
     let failure_summary: Vec<String> = failures.iter()
@@ -308,21 +308,21 @@ fn generate_reflection(steps: &[ReActStep]) -> String {
         .collect();
 
     format!(
-        "다음 방법들이 실패했습니다:\n{}\n\n완전히 다른 접근법을 사용하세요.",
+        "The following approaches failed:\n{}\n\nUse a completely different approach.",
         failure_summary.join("\n")
     )
 }
 
-// ─── TDD 모드 ────────────────────────────────────────────────────────────────
+// ─── TDD mode ──────────────────────────────────────────────────────────────────────────────
 
 fn inject_tdd_instruction(history: &mut Vec<Message>) {
-    let tdd_instruction = "\n\n=== TDD 모드 ===\n\
-        구현 순서를 반드시 지키세요:\n\
-        1. 실패하는 테스트 먼저 작성\n\
-        2. 테스트가 실패하는지 확인 (Red)\n\
-        3. 테스트를 통과하는 최소한의 코드 구현 (Green)\n\
-        4. 코드 개선 (Refactor)\n\
-        5. 모든 테스트 통과 확인";
+    let tdd_instruction = "\n\n=== TDD Mode ===\n\
+        Follow this implementation order strictly:\n\
+        1. Write a failing test first\n\
+        2. Confirm the test fails (Red)\n\
+        3. Write the minimum code to pass the test (Green)\n\
+        4. Improve the code (Refactor)\n\
+        5. Confirm all tests pass";
 
     if let Some(first) = history.first_mut() {
         if matches!(first.role, crate::models::Role::System) {
@@ -331,15 +331,15 @@ fn inject_tdd_instruction(history: &mut Vec<Message>) {
     }
 }
 
-// ─── 의존성 분석 ─────────────────────────────────────────────────────────────
+// ─── Impact analysis ───────────────────────────────────────────────────────────────────────
 
-/// 파일 변경 전 영향 범위 분석
+/// Analyze the impact of a file change before making it
 pub async fn analyze_impact(
     client: &OllamaClient,
     file_path: &str,
     change_description: &str,
 ) -> Result<String> {
-    // 파일을 import/use하는 곳 찾기
+    // find places that import/use the file
     let filename = std::path::Path::new(file_path)
         .file_stem()
         .and_then(|s| s.to_str())
@@ -354,31 +354,31 @@ pub async fn analyze_impact(
         .collect();
 
     if affected_files.is_empty() {
-        return Ok(format!("'{}' 에 대한 참조가 없습니다.", filename));
+        return Ok(format!("No references found for '{}'.", filename));
     }
 
-    // AI에게 영향 분석 요청
+    // request impact analysis from AI
     let prompt = format!(
-        "다음 파일을 변경합니다: `{}`\n\
-         변경 내용: {}\n\n\
-         이 파일을 참조하는 곳들:\n{}\n\n\
-         이 변경이 미칠 영향을 간단히 분석하세요 (200자 이내).",
+        "Changing the following file: `{}`\n\
+         Change description: {}\n\n\
+         Places that reference this file:\n{}\n\n\
+         Briefly analyze the impact of this change (under 200 chars).",
         file_path,
         change_description,
         affected_files.join("\n")
     );
 
     let msgs = vec![
-        Message::system("당신은 코드 영향도 분석 전문가입니다."),
+        Message::system("You are an expert in code impact analysis."),
         Message::user(&prompt),
     ];
 
     let result = client.chat(msgs).await
         .map(|r| r.message.content)
-        .unwrap_or_else(|_| format!("{} 곳에서 참조됨", affected_files.len()));
+        .unwrap_or_else(|_| format!("{} reference(s) found", affected_files.len()));
 
     Ok(format!(
-        "영향 범위 ({} 곳):\n{}\n\n분석:\n{}",
+        "Impact scope ({} location(s)):\n{}\n\nAnalysis:\n{}",
         affected_files.len(),
         affected_files.join("\n"),
         result

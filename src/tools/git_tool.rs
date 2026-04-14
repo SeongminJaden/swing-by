@@ -1,7 +1,7 @@
-/// Git 레포지토리 관리 툴
+/// Git repository management tool
 ///
-/// 초기화, 클론, 커밋, 브랜치, 푸시/풀, 상태 확인 등
-/// Conventional Commits 기반 커밋 메시지 검증 포함
+/// init, clone, commit, branch, push/pull, status, etc.
+/// Includes Conventional Commits message validation
 
 use anyhow::{Context, Result};
 use std::process::Command;
@@ -10,7 +10,7 @@ use std::path::Path;
 const GIT_TIMEOUT_SECS: u64 = 120;
 const MAX_OUTPUT: usize = 16_000;
 
-// ─── Git 결과 ────────────────────────────────────────────────────────────────
+// ─── Git result ────────────────────────────────────────────────────────────────
 
 #[derive(Debug)]
 pub struct GitResult {
@@ -24,11 +24,11 @@ impl std::fmt::Display for GitResult {
     }
 }
 
-// ─── Conventional Commits 검증 ────────────────────────────────────────────────
+// ─── Conventional Commits validation ────────────────────────────────────────────────
 
-/// Conventional Commits 형식 검증 및 자동 포맷
-/// 형식: <type>(<scope>): <description>
-/// 타입: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert
+/// Validate and auto-format a Conventional Commits message
+/// Format: <type>(<scope>): <description>
+/// Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert
 pub fn validate_commit_message(msg: &str) -> Result<String, String> {
     let valid_types = [
         "feat", "fix", "docs", "style", "refactor", "perf",
@@ -37,10 +37,10 @@ pub fn validate_commit_message(msg: &str) -> Result<String, String> {
 
     let msg = msg.trim();
     if msg.is_empty() {
-        return Err("커밋 메시지가 비어 있습니다.".to_string());
+        return Err("Commit message is empty.".to_string());
     }
 
-    // 이미 Conventional Commits 형식이면 그대로 반환
+    // already in Conventional Commits format, return as-is
     let first_line = msg.lines().next().unwrap_or("").trim();
     for vt in &valid_types {
         if first_line.starts_with(&format!("{}(", vt))
@@ -50,35 +50,35 @@ pub fn validate_commit_message(msg: &str) -> Result<String, String> {
         }
     }
 
-    // 형식이 아니면 경고만 (강제하지 않음)
+    // not in format — warn only, do not enforce
     Ok(msg.to_string())
 }
 
-/// Conventional Commits 타입 목록 반환
+/// Return list of Conventional Commits types
 pub fn commit_types_help() -> &'static str {
-    r#"Conventional Commits 타입:
-  feat:     새 기능 추가
-  fix:      버그 수정
-  docs:     문서 변경
-  style:    코드 포맷, 세미콜론 등 (기능 변경 없음)
-  refactor: 리팩토링 (기능/버그 수정 없음)
-  perf:     성능 개선
-  test:     테스트 추가/수정
-  build:    빌드 시스템, 외부 의존성 변경
-  ci:       CI 설정 변경
-  chore:    기타 유지보수
-  revert:   이전 커밋 되돌리기
-  release:  릴리스 버전 태그
+    r#"Conventional Commits types:
+  feat:     add a new feature
+  fix:      fix a bug
+  docs:     documentation changes
+  style:    code formatting, semicolons, etc. (no logic change)
+  refactor: refactoring (no feature/bug change)
+  perf:     performance improvements
+  test:     add or update tests
+  build:    build system or external dependency changes
+  ci:       CI configuration changes
+  chore:    other maintenance
+  revert:   revert a previous commit
+  release:  release version tag
 
-형식: <type>(<scope>): <description>
-예시:
+Format: <type>(<scope>): <description>
+Examples:
   feat(auth): add OAuth2 login support
   fix(api): resolve null pointer in user endpoint
   docs(readme): update installation guide
   refactor(db): extract repository pattern"#
 }
 
-// ─── Git 명령어 실행 ─────────────────────────────────────────────────────────
+// ─── Git command execution ─────────────────────────────────────────────────────────
 
 fn run_git(args: &[&str], cwd: Option<&str>) -> Result<GitResult> {
     run_git_with_timeout(args, cwd, GIT_TIMEOUT_SECS)
@@ -96,7 +96,7 @@ fn run_git_with_timeout(args: &[&str], cwd: Option<&str>, timeout_secs: u64) -> 
         }
     }
 
-    // 환경변수: non-interactive, no color
+    // env: non-interactive, no color
     cmd.env("GIT_TERMINAL_PROMPT", "0")
        .env("GIT_ASKPASS", "echo")
        .env("TERM", "dumb");
@@ -121,8 +121,8 @@ fn run_git_with_timeout(args: &[&str], cwd: Option<&str>, timeout_secs: u64) -> 
     });
 
     let output = rx.recv_timeout(timeout)
-        .with_context(|| format!("git {:?} 타임아웃", args))?
-        .with_context(|| "git 실행 실패")?;
+        .with_context(|| format!("git {:?} timeout", args))?
+        .with_context(|| "git execution failed")?;
 
     let stdout = truncate(String::from_utf8_lossy(&output.stdout).to_string());
     let stderr = truncate(String::from_utf8_lossy(&output.stderr).to_string());
@@ -144,34 +144,34 @@ fn run_git_with_timeout(args: &[&str], cwd: Option<&str>, timeout_secs: u64) -> 
 
 fn truncate(s: String) -> String {
     if s.len() > MAX_OUTPUT {
-        format!("{}...[잘림 {}바이트]", &s[..MAX_OUTPUT], s.len())
+        format!("{}...[truncated {} bytes]", &s[..MAX_OUTPUT], s.len())
     } else {
         s
     }
 }
 
-// ─── Git 초기화 / 클론 ────────────────────────────────────────────────────────
+// ─── Git init / clone ────────────────────────────────────────────────────────
 
 /// git init [path]
 pub fn git_init(path: &str) -> Result<GitResult> {
     let target = if path.is_empty() { "." } else { path };
     if target != "." {
         std::fs::create_dir_all(target)
-            .with_context(|| format!("디렉토리 생성 실패: {}", target))?;
+            .with_context(|| format!("Failed to create directory: {}", target))?;
     }
     let result = run_git(&["init"], Some(target))?;
 
-    // 기본 .gitignore 생성 (없을 때만)
+    // create default .gitignore if not present
     let gi_path = format!("{}/.gitignore", target.trim_end_matches('/'));
     if !Path::new(&gi_path).exists() {
         let _ = std::fs::write(&gi_path, DEFAULT_GITIGNORE);
     }
 
-    // 기본 브랜치를 main으로 설정
+    // set default branch to main
     let _ = run_git(&["checkout", "-b", "main"], Some(target));
 
     Ok(GitResult {
-        output: format!("{}\n.gitignore 생성됨", result.output),
+        output: format!("{}\n.gitignore created", result.output),
         success: result.success,
     })
 }
@@ -185,7 +185,7 @@ pub fn git_clone(url: &str, dest: &str) -> Result<GitResult> {
     }
 }
 
-// ─── 상태 / 로그 ─────────────────────────────────────────────────────────────
+// ─── Status / log ─────────────────────────────────────────────────────────────
 
 /// git status
 pub fn git_status(path: &str) -> Result<GitResult> {
@@ -215,7 +215,7 @@ pub fn git_show(path: &str, git_ref: &str) -> Result<GitResult> {
     run_git(&["show", "--stat", git_ref], Some(path))
 }
 
-// ─── 스테이징 / 커밋 ─────────────────────────────────────────────────────────
+// ─── Staging / commit ─────────────────────────────────────────────────────────
 
 /// git add <files...>
 pub fn git_add(path: &str, files: &[&str]) -> Result<GitResult> {
@@ -228,7 +228,7 @@ pub fn git_add(path: &str, files: &[&str]) -> Result<GitResult> {
     }
 }
 
-/// git commit -m <message> (Conventional Commits 검증 포함)
+/// git commit -m <message> (with Conventional Commits validation)
 pub fn git_commit(path: &str, message: &str, allow_empty: bool) -> Result<GitResult> {
     let msg = validate_commit_message(message)
         .unwrap_or_else(|_| message.to_string());
@@ -259,7 +259,7 @@ pub fn git_stash(path: &str, subcmd: &str) -> Result<GitResult> {
     }
 }
 
-// ─── 브랜치 ──────────────────────────────────────────────────────────────────
+// ─── Branch ──────────────────────────────────────────────────────────────────
 
 /// git branch [--all]
 pub fn git_branch_list(path: &str) -> Result<GitResult> {
@@ -298,7 +298,7 @@ pub fn git_branch_delete(path: &str, branch: &str, force: bool) -> Result<GitRes
     }
 }
 
-// ─── 리모트 / 푸시 / 풀 ──────────────────────────────────────────────────────
+// ─── Remote / push / pull ──────────────────────────────────────────────────────
 
 /// git remote add <name> <url>
 pub fn git_remote_add(path: &str, name: &str, url: &str) -> Result<GitResult> {
@@ -344,7 +344,7 @@ pub fn git_fetch(path: &str, remote: &str) -> Result<GitResult> {
     run_git_with_timeout(&["fetch", remote], Some(path), 60)
 }
 
-// ─── 태그 ────────────────────────────────────────────────────────────────────
+// ─── Tags ────────────────────────────────────────────────────────────────────
 
 /// git tag [name] [message]
 pub fn git_tag(path: &str, name: &str, message: &str) -> Result<GitResult> {
@@ -360,9 +360,9 @@ pub fn git_tag_list(path: &str) -> Result<GitResult> {
     run_git(&["tag", "--list", "--sort=-version:refname"], Some(path))
 }
 
-// ─── 설정 ────────────────────────────────────────────────────────────────────
+// ─── Config ────────────────────────────────────────────────────────────────────
 
-/// git config (로컬 설정)
+/// git config (local)
 pub fn git_config(path: &str, key: &str, value: &str) -> Result<GitResult> {
     run_git(&["config", "--local", key, value], Some(path))
 }
@@ -372,41 +372,41 @@ pub fn git_config_global(key: &str, value: &str) -> Result<GitResult> {
     run_git(&["config", "--global", key, value], None)
 }
 
-/// 기본 git 설정 (사용자 정보 없으면 설정)
+/// Apply default git config (sets user info if not set)
 pub fn git_setup_defaults(path: &str) -> Result<String> {
     let mut msgs = vec![];
 
-    // user.email 확인
+    // check user.email
     let email_check = run_git(&["config", "user.email"], Some(path));
     if email_check.map(|r| r.output.trim().is_empty()).unwrap_or(true) {
         let _ = run_git(&["config", "--local", "user.email", "ai-agent@local"], Some(path));
         let _ = run_git(&["config", "--local", "user.name", "AI Agent"], Some(path));
-        msgs.push("git 사용자 정보 설정: AI Agent <ai-agent@local>");
+        msgs.push("git user set: AI Agent <ai-agent@local>");
     }
 
-    // core.autocrlf 설정
+    // set core.autocrlf
     let _ = run_git(&["config", "--local", "core.autocrlf", "input"], Some(path));
-    // pull.rebase 설정
+    // set pull.rebase
     let _ = run_git(&["config", "--local", "pull.rebase", "false"], Some(path));
 
     Ok(msgs.join("\n"))
 }
 
-// ─── 레포지토리 정보 ─────────────────────────────────────────────────────────
+// ─── Repository info ─────────────────────────────────────────────────────────
 
-/// 현재 브랜치명 반환
+/// Return current branch name
 pub fn git_current_branch(path: &str) -> Result<String> {
     run_git(&["branch", "--show-current"], Some(path))
         .map(|r| r.output.trim().to_string())
 }
 
-/// 레포 루트 경로 반환
+/// Return repository root path
 pub fn git_root(path: &str) -> Result<String> {
     run_git(&["rev-parse", "--show-toplevel"], Some(path))
         .map(|r| r.output.trim().to_string())
 }
 
-/// 변경된 파일 목록
+/// List changed files
 pub fn git_changed_files(path: &str) -> Result<Vec<String>> {
     run_git(&["diff", "--name-only", "HEAD"], Some(path))
         .map(|r| {
@@ -417,11 +417,11 @@ pub fn git_changed_files(path: &str) -> Result<Vec<String>> {
         })
 }
 
-/// git blame — 파일 라인별 최종 수정 커밋/작성자 표시
+/// git blame — show last commit/author per line
 pub fn git_blame(path: &str, file: &str) -> Result<GitResult> {
     run_git(&["blame", "--line-porcelain", file], Some(path))
         .map(|r| {
-            // porcelain 형식을 읽기 쉬운 요약으로 변환
+            // convert porcelain format to readable summary
             let mut lines: Vec<String> = Vec::new();
             let mut commit = String::new();
             let mut author = String::new();
@@ -429,7 +429,7 @@ pub fn git_blame(path: &str, file: &str) -> Result<GitResult> {
 
             for l in r.output.lines() {
                 if l.starts_with('\t') {
-                    // 실제 소스 라인
+                    // actual source line
                     let src_line = &l[1..];
                     lines.push(format!(
                         "{:4} {:7} {:20} | {}",
@@ -441,12 +441,12 @@ pub fn git_blame(path: &str, file: &str) -> Result<GitResult> {
                 } else if l.starts_with("author ") {
                     author = l[7..].trim().to_string();
                 } else if l.len() >= 40 && !l.contains(' ') {
-                    // commit hash 줄
+                    // commit hash line
                     commit = l.to_string();
                 } else if l.starts_with("summary ") {
                     // skip
                 } else {
-                    // "finalline lineno count" 헤더에서 라인번호 추출
+                    // extract line number from header
                     let parts: Vec<&str> = l.split_whitespace().collect();
                     if parts.len() >= 3 {
                         line_no = parts[2].parse().unwrap_or(line_no);
@@ -465,7 +465,7 @@ pub fn git_blame(path: &str, file: &str) -> Result<GitResult> {
         })
 }
 
-/// 스테이지된 변경사항 파일 목록
+/// List staged files
 pub fn git_staged_files(path: &str) -> Result<Vec<String>> {
     run_git(&["diff", "--cached", "--name-only"], Some(path))
         .map(|r| {
@@ -476,12 +476,12 @@ pub fn git_staged_files(path: &str) -> Result<Vec<String>> {
         })
 }
 
-/// 원격 브랜치 목록
+/// List remote branches
 pub fn git_remote_branches(path: &str, remote: &str) -> Result<GitResult> {
     run_git(&["branch", "-r", "--list", &format!("{}/*", remote)], Some(path))
 }
 
-// ─── 기본 .gitignore ─────────────────────────────────────────────────────────
+// ─── Default .gitignore ─────────────────────────────────────────────────────────
 
 const DEFAULT_GITIGNORE: &str = r#"# OS
 .DS_Store
@@ -537,7 +537,7 @@ __pycache__/
 venv/
 .venv/
 
-# Package lock (선택적으로 커밋)
+# Package lock (commit selectively)
 # package-lock.json
 # yarn.lock
 "#;

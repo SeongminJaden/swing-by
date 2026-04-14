@@ -1,4 +1,4 @@
-//! Discord 봇 구현
+//! Discord bot implementation
 
 use anyhow::Result;
 use serenity::{
@@ -16,9 +16,9 @@ use crate::agent::{
 use crate::models::Message;
 use crate::discord::session::SessionStore;
 
-const DISCORD_MAX_LEN: usize = 1900;  // Discord 메시지 최대 2000자, 안전 마진
+const DISCORD_MAX_LEN: usize = 1900;  // Discord message max 2000 chars, safety margin
 
-// ─── 봇 데이터 키 ────────────────────────────────────────────────────────────
+// ─── Bot data keys ───────────────────────────────────────────────────────────
 
 struct ClientKey;
 impl TypeMapKey for ClientKey {
@@ -40,18 +40,18 @@ impl TypeMapKey for AllowedChannelKey {
     type Value = Option<u64>;
 }
 
-// ─── 이벤트 핸들러 ───────────────────────────────────────────────────────────
+// ─── Event handler ───────────────────────────────────────────────────────────
 
 struct BotHandler;
 
 #[async_trait]
 impl EventHandler for BotHandler {
     async fn ready(&self, _ctx: Context, ready: Ready) {
-        println!("Discord 봇 연결됨: {}", ready.user.name);
+        println!("Discord bot connected: {}", ready.user.name);
     }
 
     async fn message(&self, ctx: Context, msg: DMsg) {
-        // 봇 자신의 메시지 무시
+        // Ignore messages from the bot itself
         if msg.author.bot { return; }
 
         let data = ctx.data.read().await;
@@ -61,12 +61,12 @@ impl EventHandler for BotHandler {
         let sessions = data.get::<SessionKey>().cloned().unwrap();
         drop(data);
 
-        // 채널 필터
+        // Channel filter
         if let Some(ch) = allowed_channel {
             if msg.channel_id.get() != ch { return; }
         }
 
-        // 접두사 확인
+        // Check prefix
         if !msg.content.starts_with(&prefix) { return; }
 
         let content = msg.content[prefix.len()..].trim();
@@ -92,12 +92,12 @@ impl EventHandler for BotHandler {
             }
             "status" => {
                 let (msg_count, elapsed) = sessions.stats(msg.channel_id.get())
-                    .unwrap_or((0, "새 세션".to_string()));
+                    .unwrap_or((0, "New session".to_string()));
                 let text = format!(
-                    "**AI Agent 상태**\n\
-                     모델: `{}`\n\
-                     채널 히스토리: {} 메시지\n\
-                     세션 시간: {}",
+                    "**AI Agent Status**\n\
+                     Model: `{}`\n\
+                     Channel history: {} messages\n\
+                     Session time: {}",
                     client.model(), msg_count, elapsed
                 );
                 send_chunked(&ctx, msg.channel_id, &text).await;
@@ -105,7 +105,7 @@ impl EventHandler for BotHandler {
             "clear" => {
                 let system = build_system_prompt(AgentRole::General, client.model());
                 sessions.clear(msg.channel_id.get(), &system);
-                send_chunked(&ctx, msg.channel_id, "세션이 초기화되었습니다.").await;
+                send_chunked(&ctx, msg.channel_id, "Session cleared.").await;
             }
             "history" => {
                 let n: usize = rest.parse().unwrap_or(5);
@@ -119,29 +119,29 @@ impl EventHandler for BotHandler {
                     .map(|m| format!("[{:?}] {}", m.role, crate::utils::trunc(&m.content, 100)))
                     .collect();
                 let text = if lines.is_empty() {
-                    "히스토리 없음".to_string()
+                    "No history".to_string()
                 } else {
-                    format!("**최근 {} 메시지**\n{}", lines.len(), lines.join("\n"))
+                    format!("**Recent {} messages**\n{}", lines.len(), lines.join("\n"))
                 };
                 send_chunked(&ctx, msg.channel_id, &text).await;
             }
             "help" | "h" => {
                 let text = format!(
-                    "**AI Agent 명령어** (접두사: `{}`)\n\
-                     `{}ask <질문>` — 일반 질문\n\
-                     `{}code <요청>` — 코드 생성\n\
-                     `{}plan <작업>` — 작업 기획\n\
-                     `{}debug <문제>` — 디버깅\n\
-                     `{}pipeline <작업>` — 기획→개발→디버깅 전체 실행\n\
-                     `{}status` — 에이전트 상태\n\
-                     `{}clear` — 채널 세션 초기화\n\
-                     `{}history [n]` — 최근 n개 히스토리",
+                    "**AI Agent commands** (prefix: `{}`)\n\
+                     `{}ask <question>` — general question\n\
+                     `{}code <request>` — code generation\n\
+                     `{}plan <task>` — task planning\n\
+                     `{}debug <problem>` — debugging\n\
+                     `{}pipeline <task>` — full plan→dev→debug pipeline\n\
+                     `{}status` — agent status\n\
+                     `{}clear` — clear channel session\n\
+                     `{}history [n]` — last n history entries",
                     prefix, prefix, prefix, prefix, prefix, prefix, prefix, prefix, prefix
                 );
                 send_chunked(&ctx, msg.channel_id, &text).await;
             }
             _ => {
-                // 접두사만 있고 명령어 없으면 ask로 처리
+                // If only prefix with no command, treat as ask
                 if !content.is_empty() {
                     handle_ask(&ctx, &msg, &client, &sessions, content, AgentRole::General).await;
                 }
@@ -150,7 +150,7 @@ impl EventHandler for BotHandler {
     }
 }
 
-// ─── 핸들러 함수들 ───────────────────────────────────────────────────────────
+// ─── Handler functions ───────────────────────────────────────────────────────────
 
 async fn handle_ask(
     ctx: &Context,
@@ -161,24 +161,24 @@ async fn handle_ask(
     role: AgentRole,
 ) {
     if prompt.is_empty() {
-        send_chunked(ctx, msg.channel_id, "질문을 입력해주세요.").await;
+        send_chunked(ctx, msg.channel_id, "Please enter a question.").await;
         return;
     }
 
-    // 타이핑 표시
+    // Show typing indicator
     let _ = msg.channel_id.broadcast_typing(&ctx.http).await;
 
     let system = build_system_prompt(role, client.model());
     let mut history = sessions.get_or_create(msg.channel_id.get(), &system);
 
-    // 첨부 파일 처리 (텍스트 파일 컨텍스트 주입)
+    // Handle attachments (inject text file context)
     let mut user_content = prompt.to_string();
     for attachment in &msg.attachments {
-        if attachment.size < 500_000 {  // 500KB 이하만
+        if attachment.size < 500_000 {  // only under 500KB
             if let Ok(bytes) = attachment.download().await {
                 if let Ok(text) = String::from_utf8(bytes) {
                     user_content.push_str(&format!(
-                        "\n\n## 첨부 파일: {}\n```\n{}\n```",
+                        "\n\n## Attachment: {}\n```\n{}\n```",
                         attachment.filename,
                         crate::utils::trunc(&text, 3000)
                     ));
@@ -189,7 +189,7 @@ async fn handle_ask(
 
     history.push(Message::user(&user_content));
 
-    // 최대 10턴 툴 호출 루프
+    // Max 10-turn tool call loop
     let mut response_text = String::new();
     for _turn in 0..10 {
         match client.chat(history.clone()).await {
@@ -212,23 +212,23 @@ async fn handle_ask(
                                     .map(|a| a.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect())
                                     .unwrap_or_default();
                                 let result = dispatch_tool(&crate::models::ToolCall { name: name.clone(), args }).await;
-                                results.push(format!("툴 '{}' 결과:\n{}", name, result.output));
+                                results.push(format!("Tool '{}' result:\n{}", name, result.output));
                             }
                         }
                         history.push(Message::assistant(&ai_text));
                         history.push(Message::tool(results.join("\n\n")));
-                        response_text = format!("[다중 툴 실행 완료]\n{}", results.join("\n"));
+                        response_text = format!("[Multi-tool execution complete]\n{}", results.join("\n"));
                     }
                     crate::models::AgentResponse::ToolCall(tc) => {
                         let result = dispatch_tool(&tc).await;
                         history.push(Message::assistant(&ai_text));
-                        history.push(Message::tool(format!("툴 '{}' 결과:\n{}", tc.name, result.output)));
-                        response_text = format!("🔧 `{}` 실행 중...", tc.name);
+                        history.push(Message::tool(format!("Tool '{}' result:\n{}", tc.name, result.output)));
+                        response_text = format!("🔧 Running `{}`...", tc.name);
                     }
                 }
             }
             Err(e) => {
-                response_text = format!("오류: {}", e);
+                response_text = format!("Error: {}", e);
                 break;
             }
         }
@@ -237,15 +237,15 @@ async fn handle_ask(
     sessions.update(msg.channel_id.get(), history);
 
     if response_text.is_empty() {
-        response_text = "응답 없음".to_string();
+        response_text = "No response".to_string();
     }
 
-    // 역할 이모지 헤더
+    // Role emoji header
     let header = match role {
-        AgentRole::Planner   => "📋 **기획 에이전트**\n",
-        AgentRole::Developer => "💻 **개발 에이전트**\n",
-        AgentRole::Debugger  => "🔍 **디버그 에이전트**\n",
-        AgentRole::Reviewer  => "👁️ **리뷰 에이전트**\n",
+        AgentRole::Planner   => "📋 **Planner Agent**\n",
+        AgentRole::Developer => "💻 **Developer Agent**\n",
+        AgentRole::Debugger  => "🔍 **Debugger Agent**\n",
+        AgentRole::Reviewer  => "👁️ **Reviewer Agent**\n",
         AgentRole::General   => "",
     };
 
@@ -259,20 +259,20 @@ async fn handle_pipeline(
     task: &str,
 ) {
     if task.is_empty() {
-        send_chunked(ctx, msg.channel_id, "사용법: `!pipeline <작업 설명>`").await;
+        send_chunked(ctx, msg.channel_id, "Usage: `!pipeline <task description>`").await;
         return;
     }
 
     let _ = msg.channel_id.broadcast_typing(&ctx.http).await;
-    send_chunked(ctx, msg.channel_id, &format!("🚀 **파이프라인 시작**: {}", task)).await;
+    send_chunked(ctx, msg.channel_id, &format!("🚀 **Pipeline started**: {}", task)).await;
 
     match run_pipeline(client, task).await {
         Ok(result) => {
             let text = format!(
-                "✅ **파이프라인 완료**\n\n\
-                 📋 **기획**\n{}\n\n\
-                 💻 **구현**\n{}\n\n\
-                 🔍 **검증**\n{}",
+                "✅ **Pipeline complete**\n\n\
+                 📋 **Plan**\n{}\n\n\
+                 💻 **Implementation**\n{}\n\n\
+                 🔍 **Verification**\n{}",
                 crate::utils::trunc(&result.plan, 500),
                 crate::utils::trunc(&result.implementation, 800),
                 crate::utils::trunc(&result.verification, 400),
@@ -280,14 +280,14 @@ async fn handle_pipeline(
             send_chunked(ctx, msg.channel_id, &text).await;
         }
         Err(e) => {
-            send_chunked(ctx, msg.channel_id, &format!("❌ 파이프라인 실패: {}", e)).await;
+            send_chunked(ctx, msg.channel_id, &format!("❌ Pipeline failed: {}", e)).await;
         }
     }
 }
 
-// ─── 유틸리티 ────────────────────────────────────────────────────────────────
+// ─── Utilities ────────────────────────────────────────────────────────────────
 
-/// 2000자 제한에 맞게 메시지 분할 전송
+/// Split and send message within 2000-char Discord limit
 async fn send_chunked(ctx: &Context, channel: ChannelId, text: &str) {
     if text.len() <= DISCORD_MAX_LEN {
         let _ = channel.say(&ctx.http, text).await;
@@ -297,13 +297,13 @@ async fn send_chunked(ctx: &Context, channel: ChannelId, text: &str) {
     let mut remaining = text;
     let mut part = 1;
     while !remaining.is_empty() {
-        // 문자 경계에서 자르기
+        // Cut at character boundary
         let cut = if remaining.len() <= DISCORD_MAX_LEN {
             remaining.len()
         } else {
             let mut end = DISCORD_MAX_LEN;
             while end > 0 && !remaining.is_char_boundary(end) { end -= 1; }
-            // 가능하면 줄바꿈에서 자르기
+            // Prefer cutting at newline
             if let Some(nl) = remaining[..end].rfind('\n') {
                 nl + 1
             } else {
@@ -314,7 +314,7 @@ async fn send_chunked(ctx: &Context, channel: ChannelId, text: &str) {
         let chunk = &remaining[..cut];
         remaining = &remaining[cut..];
 
-        let header = if part > 1 { format!("*(계속 {})* ", part) } else { String::new() };
+        let header = if part > 1 { format!("*(continued {})* ", part) } else { String::new() };
         let _ = channel.say(&ctx.http, format!("{}{}", header, chunk)).await;
         part += 1;
 
@@ -326,60 +326,59 @@ fn build_system_prompt(role: AgentRole, model: &str) -> String {
     let role_prompt = match role {
         AgentRole::General => crate::agent::tools::tool_descriptions().to_string(),
         AgentRole::Planner => format!(
-            "{}\n\n=== 역할: 기획 에이전트 ===\n\
-             당신은 소프트웨어 기획 전문가입니다.\n\
-             사용자의 요청을 분석하여:\n\
-             1. 명확한 요구사항 정의\n\
-             2. 기술 스택 선정\n\
-             3. 단계별 구현 계획\n\
-             4. 위험 요소 및 대안\n\
-             을 체계적으로 작성하세요.",
+            "{}\n\n=== Role: Planner Agent ===\n\
+             You are a software planning expert.\n\
+             Analyze user requests and systematically write:\n\
+             1. Clear requirements definition\n\
+             2. Tech stack selection\n\
+             3. Step-by-step implementation plan\n\
+             4. Risk factors and alternatives.",
             crate::agent::tools::tool_descriptions()
         ),
         AgentRole::Developer => format!(
-            "{}\n\n=== 역할: 개발 에이전트 ===\n\
-             당신은 시니어 소프트웨어 엔지니어입니다.\n\
-             코드를 작성할 때:\n\
-             1. 에러 처리 철저히\n\
-             2. 테스트 코드 포함\n\
-             3. 주요 로직에 주석\n\
-             4. 성능과 보안 고려\n\
-             실제 동작하는 코드를 작성하세요.",
+            "{}\n\n=== Role: Developer Agent ===\n\
+             You are a senior software engineer.\n\
+             When writing code:\n\
+             1. Thorough error handling\n\
+             2. Include test code\n\
+             3. Comment key logic\n\
+             4. Consider performance and security\n\
+             Write code that actually works.",
             crate::agent::tools::tool_descriptions()
         ),
         AgentRole::Debugger => format!(
-            "{}\n\n=== 역할: 디버그 에이전트 ===\n\
-             당신은 디버깅 전문가입니다.\n\
-             문제를 분석할 때:\n\
-             1. 증상과 근본 원인 구분\n\
-             2. 재현 방법 확인\n\
-             3. 단계적 원인 추적\n\
-             4. 수정 및 검증\n\
-             근거 기반으로 분석하세요.",
+            "{}\n\n=== Role: Debugger Agent ===\n\
+             You are a debugging expert.\n\
+             When analyzing issues:\n\
+             1. Distinguish symptoms from root cause\n\
+             2. Verify reproduction steps\n\
+             3. Trace cause step by step\n\
+             4. Fix and verify\n\
+             Analyze based on evidence.",
             crate::agent::tools::tool_descriptions()
         ),
         AgentRole::Reviewer => format!(
-            "{}\n\n=== 역할: 코드 리뷰 에이전트 ===\n\
-             당신은 코드 리뷰 전문가입니다.\n\
-             리뷰 시 확인 항목:\n\
-             1. 버그 및 엣지 케이스\n\
-             2. 보안 취약점\n\
-             3. 성능 병목\n\
-             4. 코드 품질 및 유지보수성\n\
-             5. 구체적인 개선 제안",
+            "{}\n\n=== Role: Code Reviewer Agent ===\n\
+             You are a code review expert.\n\
+             Review checklist:\n\
+             1. Bugs and edge cases\n\
+             2. Security vulnerabilities\n\
+             3. Performance bottlenecks\n\
+             4. Code quality and maintainability\n\
+             5. Concrete improvement suggestions",
             crate::agent::tools::tool_descriptions()
         ),
     };
-    format!("모델: {}\n\n{}", model, role_prompt)
+    format!("Model: {}\n\n{}", model, role_prompt)
 }
 
-// ─── 봇 실행 진입점 ──────────────────────────────────────────────────────────
+// ─── Bot entry point ──────────────────────────────────────────────────────────
 
 pub async fn run_discord_bot(client: Arc<OllamaClient>) -> Result<()> {
     let token = std::env::var("DISCORD_TOKEN")
         .map_err(|_| anyhow::anyhow!(
-            "DISCORD_TOKEN 환경변수가 설정되지 않았습니다.\n\
-             Discord Developer Portal에서 봇 토큰을 발급받아 설정하세요."
+            "DISCORD_TOKEN environment variable is not set.\n\
+             Obtain a bot token from the Discord Developer Portal and set it."
         ))?;
 
     let prefix = std::env::var("DISCORD_PREFIX").unwrap_or_else(|_| "!".to_string());
@@ -394,7 +393,7 @@ pub async fn run_discord_bot(client: Arc<OllamaClient>) -> Result<()> {
     let mut discord_client = serenity::Client::builder(&token, intents)
         .event_handler(BotHandler)
         .await
-        .map_err(|e| anyhow::anyhow!("Discord 클라이언트 생성 실패: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("Failed to create Discord client: {}", e))?;
 
     {
         let mut data = discord_client.data.write().await;
@@ -404,11 +403,11 @@ pub async fn run_discord_bot(client: Arc<OllamaClient>) -> Result<()> {
         data.insert::<AllowedChannelKey>(allowed_channel);
     }
 
-    println!("Discord 봇 시작 (접두사: '{}')", prefix);
+    println!("Discord bot started (prefix: '{}')", prefix);
     if let Some(ch) = allowed_channel {
-        println!("허용 채널: {}", ch);
+        println!("Allowed channel: {}", ch);
     }
 
     discord_client.start().await
-        .map_err(|e| anyhow::anyhow!("Discord 봇 실행 실패: {}", e))
+        .map_err(|e| anyhow::anyhow!("Discord bot execution failed: {}", e))
 }

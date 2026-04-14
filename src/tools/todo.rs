@@ -12,32 +12,32 @@ pub struct TodoItem {
     pub priority: Option<String>, // "high" | "medium" | "low"
 }
 
-/// TODO 목록 저장 (JSON 배열 문자열)
+/// Save TODO list (JSON array string)
 pub fn todo_write(json_str: &str) -> Result<String> {
     let todos: Vec<TodoItem> = serde_json::from_str(json_str.trim())
-        .context("TODO JSON 파싱 실패. 형식: [{\"id\":\"1\",\"content\":\"내용\",\"status\":\"pending\"}]")?;
+        .context("Failed to parse TODO JSON. Expected format: [{\"id\":\"1\",\"content\":\"task\",\"status\":\"pending\"}]")?;
 
     let json = serde_json::to_string_pretty(&todos)
-        .context("TODO 직렬화 실패")?;
+        .context("Failed to serialize TODO list")?;
     std::fs::write(TODO_FILE, &json)
-        .context("TODO 파일 쓰기 실패")?;
+        .context("Failed to write TODO file")?;
 
     Ok(format_todos(&todos))
 }
 
-/// TODO 목록 읽기
+/// Read TODO list
 pub fn todo_read() -> Result<Vec<TodoItem>> {
     if !std::path::Path::new(TODO_FILE).exists() {
         return Ok(Vec::new());
     }
     let content = std::fs::read_to_string(TODO_FILE)
-        .context("TODO 파일 읽기 실패")?;
-    serde_json::from_str(&content).context("TODO JSON 파싱 실패")
+        .context("Failed to read TODO file")?;
+    serde_json::from_str(&content).context("Failed to parse TODO JSON")
 }
 
 fn format_todos(todos: &[TodoItem]) -> String {
     if todos.is_empty() {
-        return "TODO 목록이 비어있습니다.".to_string();
+        return "TODO list is empty.".to_string();
     }
 
     todos
@@ -80,9 +80,9 @@ mod tests {
     #[test]
     fn todo_write_and_read_roundtrip() {
         with_temp_dir(|| {
-            let json = r#"[{"id":"1","content":"테스트","status":"pending"}]"#;
+            let json = r#"[{"id":"1","content":"test task","status":"pending"}]"#;
             let output = todo_write(json).unwrap();
-            assert!(output.contains("테스트"));
+            assert!(output.contains("test task"));
 
             let items = todo_read().unwrap();
             assert_eq!(items.len(), 1);
@@ -103,7 +103,7 @@ mod tests {
     fn todo_write_invalid_json_returns_err() {
         with_temp_dir(|| {
             let err = todo_write("not json").unwrap_err();
-            assert!(err.to_string().contains("파싱 실패"));
+            assert!(err.to_string().contains("parsing failed"));
         });
     }
 

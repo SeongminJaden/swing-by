@@ -1,7 +1,7 @@
-/// 서브에이전트 / 멀티에이전트 구현
+/// Sub-agent / multi-agent implementation
 ///
-/// 서브에이전트는 독립된 컨텍스트에서 주어진 태스크를 처리하고 결과를 반환합니다.
-/// (재귀 호출을 피하기 위해 내부 툴 디스패치는 직접 구현)
+/// A sub-agent processes a given task in an isolated context and returns the result.
+/// (The internal tool dispatch is implemented independently to avoid recursive calls)
 
 use anyhow::Result;
 use crate::models::{AgentResponse, Message, ToolCall};
@@ -9,7 +9,7 @@ use super::ollama::OllamaClient;
 
 const SUB_AGENT_MAX_TURNS: usize = 15;
 
-// ─── 내부 툴 디스패치 (재귀 방지용 독립 구현) ─────────────────────────────────
+// ─── Internal tool dispatch (standalone implementation to avoid recursion) ──────────────────
 
 async fn dispatch_tool_inner(call: &ToolCall) -> String {
     use crate::tools::{
@@ -33,12 +33,12 @@ async fn dispatch_tool_inner(call: &ToolCall) -> String {
         "write_file" => {
             let path = call.args.first().map(|s| s.as_str()).unwrap_or("");
             let content = unescape(&call.args[1..].join(" "));
-            write_file(path, &content).map(|_| format!("저장: {}", path))
+            write_file(path, &content).map(|_| format!("Saved: {}", path))
         }
         "append_file" => {
             let path = call.args.first().map(|s| s.as_str()).unwrap_or("");
             let content = unescape(&call.args[1..].join(" "));
-            append_file(path, &content).map(|_| format!("추가: {}", path))
+            append_file(path, &content).map(|_| format!("Appended: {}", path))
         }
         "edit_file" => {
             let path = call.args.first().map(|s| s.as_str()).unwrap_or("");
@@ -48,21 +48,21 @@ async fn dispatch_tool_inner(call: &ToolCall) -> String {
         }
         "delete_file" | "remove_file" => {
             let path = call.args.first().map(|s| s.as_str()).unwrap_or("");
-            delete_file(path).map(|_| format!("삭제: {}", path))
+            delete_file(path).map(|_| format!("Deleted: {}", path))
         }
         "move_file" | "mv" => {
             let src = call.args.first().map(|s| s.as_str()).unwrap_or("");
             let dst = call.args.get(1).map(|s| s.as_str()).unwrap_or("");
-            move_file(src, dst).map(|_| format!("이동: {} → {}", src, dst))
+            move_file(src, dst).map(|_| format!("Moved: {} → {}", src, dst))
         }
         "copy_file" | "cp" => {
             let src = call.args.first().map(|s| s.as_str()).unwrap_or("");
             let dst = call.args.get(1).map(|s| s.as_str()).unwrap_or("");
-            copy_file(src, dst).map(|b| format!("복사: {} → {} ({} bytes)", src, dst, b))
+            copy_file(src, dst).map(|b| format!("Copied: {} → {} ({} bytes)", src, dst, b))
         }
         "mkdir" | "make_dir" => {
             let path = call.args.join(" ");
-            make_dir(path.trim()).map(|_| format!("디렉토리 생성: {}", path.trim()))
+            make_dir(path.trim()).map(|_| format!("Directory created: {}", path.trim()))
         }
         "list_dir" => {
             let path = call.args.first().map(|s| s.as_str()).unwrap_or(".");
@@ -71,7 +71,7 @@ async fn dispatch_tool_inner(call: &ToolCall) -> String {
         "glob" => {
             let pattern = call.args.join(" ");
             glob_files(pattern.trim()).map(|f| {
-                if f.is_empty() { "없음".into() } else { format!("{} 파일\n{}", f.len(), f.join("\n")) }
+                if f.is_empty() { "None".into() } else { format!("{} file(s)\n{}", f.len(), f.join("\n")) }
             })
         }
         "grep" => {
@@ -83,7 +83,7 @@ async fn dispatch_tool_inner(call: &ToolCall) -> String {
                  call.args.get(1).map(|s| s.as_str()).unwrap_or(".").to_string())
             };
             grep_files(&pat, &path).map(|l| {
-                if l.is_empty() { "없음".into() } else { format!("{} 결과\n{}", l.len(), l.join("\n")) }
+                if l.is_empty() { "None".into() } else { format!("{} result(s)\n{}", l.len(), l.join("\n")) }
             })
         }
         "run_code" => {
@@ -169,16 +169,16 @@ async fn dispatch_tool_inner(call: &ToolCall) -> String {
             let path = call.args.first().map(|s| s.as_str()).unwrap_or(".");
             git_staged_files(path).map(|f| f.join("\n"))
         }
-        unknown => Err(anyhow::anyhow!("알 수 없는 툴: '{}'", unknown)),
+        unknown => Err(anyhow::anyhow!("Unknown tool: '{}'", unknown)),
     };
 
     match result {
         Ok(out) => out,
-        Err(e) => format!("오류: {}", e),
+        Err(e) => format!("Error: {}", e),
     }
 }
 
-// ─── 응답 Parsing ────────────────────────────────────────────────────────────────
+// ─── Response parsing ───────────────────────────────────────────────────────────────
 
 fn parse_sub_response(text: &str) -> AgentResponse {
     let trimmed = text.trim();
@@ -241,43 +241,43 @@ fn parse_edit_delimiters(body: &str) -> (String, String) {
     (String::new(), String::new())
 }
 
-// ─── 서브에이전트 ─────────────────────────────────────────────────────────────
+// ─── Sub-agent ─────────────────────────────────────────────────────────────────────────────
 
 fn sub_system_prompt(model: &str) -> String {
     format!(
-        "모델: {}\n당신은 메인 에이전트의 서브에이전트입니다.\
-태스크를 완료하면 'DONE: <결과>'로 응답하거나 일반 텍스트로 최종 답변을 제공하세요.\n\n{}",
+        "Model: {}\nYou are a sub-agent of the main agent.\
+When you finish the task, respond with 'DONE: <result>' or provide the final answer as plain text.\n\n{}",
         model,
         crate::agent::tools::tool_descriptions()
     )
 }
 
-/// 단일 서브에이전트 실행
+/// Run a single sub-agent
 pub async fn run_sub_agent(task: &str, ollama_url: &str, model: &str) -> Result<String> {
     let client = OllamaClient::new(ollama_url, model);
     let mut history = vec![
         Message::system(&sub_system_prompt(model)),
-        Message::user(&format!("태스크: {}", task)),
+        Message::user(&format!("Task: {}", task)),
     ];
-    let mut last = String::from("완료");
+    let mut last = String::from("Done");
 
     for turn in 0..SUB_AGENT_MAX_TURNS {
         let response = match client.chat(history.clone()).await {
             Ok(r) => r.message.content,
-            Err(e) => return Ok(format!("[서브에이전트 오류 (turn={})]: {}", turn, e)),
+            Err(e) => return Ok(format!("[Sub-agent error (turn={})]: {}", turn, e)),
         };
         last = response.clone();
 
         if response.trim().starts_with("DONE:") {
             let result = response.trim().trim_start_matches("DONE:").trim();
-            return Ok(format!("[서브에이전트 {}턴 완료]\n{}", turn + 1, result));
+            return Ok(format!("[Sub-agent completed in {} turn(s)]\n{}", turn + 1, result));
         }
 
         match parse_sub_response(&response) {
             AgentResponse::ToolCall(tc) => {
                 let out = dispatch_tool_inner(&tc).await;
                 history.push(Message::assistant(&response));
-                history.push(Message::tool(format!("툴 '{}' 결과:\n{}", tc.name, out)));
+                history.push(Message::tool(format!("Tool '{}' result:\n{}", tc.name, out)));
             }
             AgentResponse::Text(_) => {
                 history.push(Message::assistant(&response));
@@ -294,13 +294,13 @@ pub async fn run_sub_agent(task: &str, ollama_url: &str, model: &str) -> Result<
         }
     }
 
-    Ok(format!("[서브에이전트 최대{}턴 도달]\n{}", SUB_AGENT_MAX_TURNS, last))
+    Ok(format!("[Sub-agent reached max {} turn(s)]\n{}", SUB_AGENT_MAX_TURNS, last))
 }
 
-// ─── 멀티에이전트 (순차 실행) ────────────────────────────────────────────────
+// ─── Multi-agent (sequential execution) ───────────────────────────────────────────────────
 
-/// 여러 태스크를 순차적으로 처리하고 결과 목록을 반환
-/// (병렬 실행은 Send 제약으로 인해 순차로 처리)
+/// Process multiple tasks sequentially and return a list of results
+/// (Parallel execution is done sequentially due to Send constraints)
 pub async fn run_multi_agent(
     tasks: Vec<String>,
     ollama_url: &str,
@@ -308,16 +308,16 @@ pub async fn run_multi_agent(
 ) -> Result<Vec<String>> {
     let mut results = vec![];
     for (i, task) in tasks.iter().enumerate() {
-        println!("\n[에이전트-{}] 시작: {}", i + 1, &task[..task.len().min(60)]);
+        println!("\n[Agent-{}] Starting: {}", i + 1, &task[..task.len().min(60)]);
         let result = run_sub_agent(task, ollama_url, model).await
-            .unwrap_or_else(|e| format!("오류: {}", e));
-        println!("[에이전트-{}] 완료", i + 1);
-        results.push(format!("[에이전트-{}]\n{}", i + 1, result));
+            .unwrap_or_else(|e| format!("Error: {}", e));
+        println!("[Agent-{}] Done", i + 1);
+        results.push(format!("[Agent-{}]\n{}", i + 1, result));
     }
     Ok(results)
 }
 
-/// 태스크를 서브태스크로 분해하여 병렬 처리
+/// Decompose a task into subtasks and process them
 #[allow(dead_code)]
 pub async fn run_parallel_task(
     task: &str,
@@ -326,14 +326,14 @@ pub async fn run_parallel_task(
 ) -> Result<String> {
     let client = OllamaClient::new(ollama_url, model);
     let decompose_prompt = format!(
-        "다음 태스크를 독립적인 서브태스크로 분해하세요.\n\
-각 서브태스크는 한 줄씩, '- ' 접두사로 작성. 최대 4개.\n\
-분해 불필요하면 '- {}' 하나만 출력.\n\n태스크: {}",
+        "Decompose the following task into independent subtasks.\n\
+Write each subtask on a separate line with a '- ' prefix. Maximum 4 subtasks.\n\
+If decomposition is unnecessary, output only '- {}'.\n\nTask: {}",
         task, task
     );
 
     let decomp_history = vec![
-        Message::system("태스크를 독립 서브태스크로 분해하는 도우미"),
+        Message::system("Helper for decomposing tasks into independent subtasks"),
         Message::user(&decompose_prompt),
     ];
 
@@ -348,7 +348,7 @@ pub async fn run_parallel_task(
 
     let subtasks = if subtasks.is_empty() { vec![task.to_string()] } else { subtasks };
 
-    println!("\n[병렬에이전트] {}개 서브태스크:", subtasks.len());
+    println!("\n[ParallelAgent] {} subtask(s):", subtasks.len());
     for (i, st) in subtasks.iter().enumerate() {
         println!("  [{}] {}", i + 1, &st[..st.len().min(70)]);
     }

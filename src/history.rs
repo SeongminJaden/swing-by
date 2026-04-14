@@ -1,10 +1,10 @@
-//! 대화 기록 영속화
+//! Conversation history persistence
 //!
-//! 세션 간에 대화 히스토리를 JSON 파일로 저장하고 불러옵니다.
+//! Saves and loads conversation history as a JSON file across sessions.
 //!
-//! 저장 위치:
-//!   ~/.claude/projects/<project_hash>/history.json  (전역)
-//!   ./.ai_history.json                               (프로젝트 로컬)
+//! Storage locations:
+//!   ~/.claude/projects/<project_hash>/history.json  (global)
+//!   ./.ai_history.json                               (project local)
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
@@ -12,15 +12,15 @@ use std::path::PathBuf;
 
 use crate::models::Message;
 
-// ─── 세션 기록 ───────────────────────────────────────────────────────────────
+// ─── Session record ───────────────────────────────────────────────────────────
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Session {
     pub id: String,
     pub created_at: u64,
-    pub title: String,           // 첫 번째 사용자 메시지 요약
+    pub title: String,           // Summary of the first user message
     pub messages: Vec<Message>,
-    pub token_count: usize,      // 추정 토큰 수 (문자 수 / 4)
+    pub token_count: usize,      // Estimated token count (char count / 4)
 }
 
 impl Session {
@@ -40,7 +40,7 @@ impl Session {
 
     pub fn add_message(&mut self, msg: Message) {
         self.token_count += msg.content.len() / 4;
-        // 첫 사용자 메시지를 제목으로 사용
+        // Use the first user message as the session title
         if self.title.is_empty() {
             if msg.role == crate::models::Role::User {
                 self.title = crate::utils::trunc(&msg.content, 60).to_string();
@@ -56,9 +56,9 @@ impl Session {
     pub fn summary(&self) -> String {
         let ts = chrono_format(self.created_at);
         format!(
-            "[{}] {} — {} 메시지, ~{}토큰",
+            "[{}] {} — {} messages, ~{} tokens",
             ts,
-            if self.title.is_empty() { "(제목 없음)" } else { &self.title },
+            if self.title.is_empty() { "(no title)" } else { &self.title },
             self.message_count(),
             self.token_count,
         )
@@ -66,10 +66,10 @@ impl Session {
 }
 
 fn chrono_format(unix: u64) -> String {
-    // 간단한 날짜 포맷 (외부 크레이트 없이)
+    // Simple date format (no external crates)
     let secs = unix % 86400;
     let days = unix / 86400;
-    // 1970-01-01 기준 대략적 날짜 (정확하지 않아도 표시용으로 충분)
+    // Approximate date from 1970-01-01 (good enough for display purposes)
     let year = 1970 + days / 365;
     let day_of_year = days % 365;
     let month = (day_of_year / 30) + 1;
@@ -79,7 +79,7 @@ fn chrono_format(unix: u64) -> String {
     format!("{:04}-{:02}-{:02} {:02}:{:02}", year, month, day, h, m)
 }
 
-// ─── 히스토리 저장소 ─────────────────────────────────────────────────────────
+// ─── History store ────────────────────────────────────────────────────────────
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct HistoryStore {
@@ -98,21 +98,21 @@ impl HistoryStore {
     pub fn save(&self, path: &PathBuf) -> Result<()> {
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)
-                .with_context(|| format!("디렉토리 생성 실패: {:?}", parent))?;
+                .with_context(|| format!("Failed to create directory: {:?}", parent))?;
         }
-        let json = serde_json::to_string_pretty(self).context("직렬화 실패")?;
+        let json = serde_json::to_string_pretty(self).context("Serialization failed")?;
         std::fs::write(path, json)
-            .with_context(|| format!("히스토리 저장 실패: {:?}", path))
+            .with_context(|| format!("Failed to save history: {:?}", path))
     }
 
     pub fn add_session(&mut self, session: Session) {
-        // 같은 ID가 있으면 덮어쓰기
+        // Overwrite if the same ID exists
         if let Some(pos) = self.sessions.iter().position(|s| s.id == session.id) {
             self.sessions[pos] = session;
         } else {
             self.sessions.push(session);
         }
-        // 최대 100세션 유지
+        // Keep at most 100 sessions
         if self.sessions.len() > 100 {
             self.sessions.drain(0..self.sessions.len() - 100);
         }
@@ -131,15 +131,15 @@ impl HistoryStore {
     }
 }
 
-// ─── 기본 경로 ───────────────────────────────────────────────────────────────
+// ─── Default path ─────────────────────────────────────────────────────────────
 
 pub fn default_history_path() -> PathBuf {
-    // 프로젝트 로컬 우선
+    // Prefer project local
     let local = PathBuf::from(".ai_history.json");
     if local.exists() {
         return local;
     }
-    // 전역 경로: ~/.ai_agent/history.json
+    // Global path: ~/.ai_agent/history.json
     dirs_or_home().join(".ai_agent").join("history.json")
 }
 
@@ -149,7 +149,7 @@ fn dirs_or_home() -> PathBuf {
         .unwrap_or_else(|_| PathBuf::from("."))
 }
 
-// ─── 히스토리 관리자 ─────────────────────────────────────────────────────────
+// ─── History manager ──────────────────────────────────────────────────────────
 
 pub struct HistoryManager {
     pub store: HistoryStore,
@@ -171,13 +171,13 @@ impl HistoryManager {
         }
     }
 
-    /// 이전 세션의 마지막 N개 메시지를 컨텍스트로 로드
+    /// Load the last N messages from the previous session as context
     pub fn load_context(&self, max_messages: usize) -> Vec<Message> {
         self.store.sessions.last()
             .map(|s| {
                 let msgs = &s.messages;
                 let skip = msgs.len().saturating_sub(max_messages);
-                // system 메시지 제외하고 최근 N개
+                // Exclude system messages, take the last N
                 msgs[skip..].iter()
                     .filter(|m| m.role != crate::models::Role::System)
                     .cloned()
@@ -199,10 +199,10 @@ impl HistoryManager {
     pub fn print_history(&self) {
         let list = self.store.list();
         if list.is_empty() {
-            println!("저장된 대화 기록 없음");
+            println!("No saved conversation history");
             return;
         }
-        println!("\n── 최근 대화 기록 (최대 20개) ──");
+        println!("\n── Recent conversation history (up to 20) ──");
         for (i, entry) in list.iter().enumerate() {
             println!("  {}. {}", i + 1, entry);
         }
@@ -232,9 +232,9 @@ mod tests {
         let mut session = Session::new("S-1");
         session.add_message(Message::system("system"));
         assert!(session.title.is_empty(), "system message must not set title");
-        session.add_message(Message::user("안녕하세요 반갑습니다"));
+        session.add_message(Message::user("Hello, nice to meet you"));
         assert!(!session.title.is_empty());
-        assert!(session.title.contains("안녕하세요"));
+        assert!(session.title.contains("Hello"));
     }
 
     #[test]
@@ -282,7 +282,7 @@ mod tests {
         store.add_session(s2);
         store.save(&path).unwrap();
         let loaded = HistoryStore::load(&path);
-        assert_eq!(loaded.sessions.len(), 1); // 중복 없음
+        assert_eq!(loaded.sessions.len(), 1); // no duplicates
         assert_eq!(loaded.sessions[0].message_count(), 2);
     }
 

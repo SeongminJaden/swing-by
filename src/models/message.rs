@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-/// Ollama API 메시지 역할
+/// Ollama API message role
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum Role {
@@ -21,7 +21,7 @@ impl std::fmt::Display for Role {
     }
 }
 
-/// 채팅 메시지
+/// Chat message
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Message {
     pub role: Role,
@@ -46,7 +46,7 @@ impl Message {
     }
 }
 
-/// Ollama /api/chat 요청 바디
+/// Ollama /api/chat request body
 #[derive(Debug, Serialize)]
 pub struct ChatRequest {
     pub model: String,
@@ -56,7 +56,7 @@ pub struct ChatRequest {
     pub options: Option<ChatOptions>,
 }
 
-/// 모델 파라미터 옵션
+/// Model parameter options
 #[derive(Debug, Serialize, Default)]
 pub struct ChatOptions {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -69,7 +69,7 @@ pub struct ChatOptions {
     pub top_p: Option<f32>,
 }
 
-/// Ollama /api/chat 응답 (stream=false)
+/// Ollama /api/chat response (stream=false)
 #[derive(Debug, Deserialize)]
 pub struct ChatResponse {
     pub message: Message,
@@ -83,22 +83,22 @@ pub struct ChatResponse {
     pub eval_count: Option<u32>,
 }
 
-/// 툴 호출 요청 (AI 응답에서 Parsing)
+/// Tool call request (parsed from AI response)
 #[derive(Debug, Clone)]
 pub struct ToolCall {
     pub name: String,
     pub args: Vec<String>,
 }
 
-/// 에이전트 대화 결과
+/// Agent conversation result
 #[derive(Debug)]
 pub enum AgentResponse {
-    /// 일반 텍스트 응답
+    /// Plain text response
     #[allow(dead_code)]
     Text(String),
-    /// 툴 호출 요청
+    /// Tool call request
     ToolCall(ToolCall),
-    /// 대화 종료 요청
+    /// Request to end the conversation
     Exit,
 }
 

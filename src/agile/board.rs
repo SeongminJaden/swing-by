@@ -90,7 +90,7 @@ impl ActivityLog {
     }
 }
 
-// ─── 보드 상태 ────────────────────────────────────────────────────────────────
+// ─── Board state ─────────────────────────────────────────────────────────────
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BoardState {
@@ -127,7 +127,7 @@ impl BoardState {
     }
 }
 
-// ─── 애자일 보드 ─────────────────────────────────────────────────────────────
+// ─── Agile board ─────────────────────────────────────────────────────────────
 
 pub struct AgileBoard {
     state: Arc<Mutex<BoardState>>,
@@ -135,7 +135,7 @@ pub struct AgileBoard {
 }
 
 impl AgileBoard {
-    /// 새 보드 생성
+    /// Create a new board
     pub fn new(project_name: &str) -> Self {
         Self {
             state: Arc::new(Mutex::new(BoardState::new(project_name))),
@@ -143,7 +143,7 @@ impl AgileBoard {
         }
     }
 
-    /// 파일에서 보드 로드 (없으면 새로 생성)
+    /// Load board from file, or create a new one if the file does not exist
     pub fn load_or_new(project_name: &str) -> Self {
         let state = if let Ok(content) = std::fs::read_to_string(BOARD_FILE) {
             serde_json::from_str::<BoardState>(&content)
@@ -157,12 +157,12 @@ impl AgileBoard {
         }
     }
 
-    /// 상태를 Arc로 공유 (에이전트 간 공유)
+    /// Share board state via Arc (shared between agents)
     pub fn shared_state(&self) -> Arc<Mutex<BoardState>> {
         self.state.clone()
     }
 
-    // ─── 스토리 관리 ───────────────────────────────────────────────────────────
+    // ─── Story management ───────────────────────────────────────────────────────────
 
     pub fn add_story(&self, story: UserStory) -> Result<String> {
         let id = story.id.clone();
@@ -185,7 +185,7 @@ impl AgileBoard {
     ) -> Result<()> {
         let mut state = self.state.lock().unwrap();
         let story = state.stories.get_mut(story_id)
-            .ok_or_else(|| anyhow::anyhow!("스토리 없음: {}", story_id))?;
+            .ok_or_else(|| anyhow::anyhow!("Story not found: {}", story_id))?;
         let old = story.status.clone();
         story.status = new_status.clone();
         story.touch();
@@ -205,10 +205,10 @@ impl AgileBoard {
     ) -> Result<()> {
         let mut state = self.state.lock().unwrap();
         let story = state.stories.get_mut(story_id)
-            .ok_or_else(|| anyhow::anyhow!("스토리 없음: {}", story_id))?;
+            .ok_or_else(|| anyhow::anyhow!("Story not found: {}", story_id))?;
         update(story);
         story.touch();
-        state.activity_log.push(ActivityLog::new(agent, "UPDATE", Some(story_id), "필드 업데이트"));
+        state.activity_log.push(ActivityLog::new(agent, "UPDATE", Some(story_id), "field update"));
         drop(state);
         self.save()
     }
@@ -217,7 +217,7 @@ impl AgileBoard {
         let bug_id = bug.id.clone();
         let story_id = bug.story_id.clone();
         let mut state = self.state.lock().unwrap();
-        // 스토리에 버그 추가
+        // Add bug to story
         if let Some(story) = state.stories.get_mut(&story_id) {
             story.bug_reports.push(bug.clone());
             story.touch();
@@ -231,7 +231,7 @@ impl AgileBoard {
         Ok(bug_id)
     }
 
-    // ─── Sprint 관리 ─────────────────────────────────────────────────────────
+    // ─── Sprint management ─────────────────────────────────────────────────────────
 
     pub fn create_sprint(&self, goal: &str) -> Result<String> {
         let mut state = self.state.lock().unwrap();
@@ -252,7 +252,7 @@ impl AgileBoard {
         let mut state = self.state.lock().unwrap();
         let sprint = state.sprints.iter_mut()
             .find(|s| s.id == sprint_id)
-            .ok_or_else(|| anyhow::anyhow!("스프린트 없음: {}", sprint_id))?;
+            .ok_or_else(|| anyhow::anyhow!("Sprint not found: {}", sprint_id))?;
         if !sprint.story_ids.contains(&story_id.to_string()) {
             sprint.story_ids.push(story_id.to_string());
         }
@@ -269,12 +269,12 @@ impl AgileBoard {
         let mut state = self.state.lock().unwrap();
         let sprint = state.sprints.iter_mut()
             .find(|s| s.id == sprint_id)
-            .ok_or_else(|| anyhow::anyhow!("스프린트 없음: {}", sprint_id))?;
+            .ok_or_else(|| anyhow::anyhow!("Sprint not found: {}", sprint_id))?;
         sprint.started = true;
         state.current_sprint_id = Some(sprint_id.to_string());
         state.activity_log.push(ActivityLog::new(
             "ScrumMaster", "SPRINT_START", None,
-            &format!("Sprint {} 시작", sprint_id),
+            &format!("Sprint {} started", sprint_id),
         ));
         drop(state);
         self.save()
@@ -284,13 +284,13 @@ impl AgileBoard {
         let mut state = self.state.lock().unwrap();
         let sprint = state.sprints.iter_mut()
             .find(|s| s.id == sprint_id)
-            .ok_or_else(|| anyhow::anyhow!("스프린트 없음: {}", sprint_id))?;
+            .ok_or_else(|| anyhow::anyhow!("Sprint not found: {}", sprint_id))?;
         sprint.completed = true;
         drop(state);
         self.save()
     }
 
-    // ─── 보드 조회 ─────────────────────────────────────────────────────────────
+    // ─── Board queries ─────────────────────────────────────────────────────────────
 
     pub fn get_stories_by_status(&self, status: &StoryStatus) -> Vec<UserStory> {
         let state = self.state.lock().unwrap();
@@ -321,9 +321,9 @@ impl AgileBoard {
         state.next_bug_id()
     }
 
-    // ─── 보드 렌더링 ───────────────────────────────────────────────────────────
+    // ─── Board rendering ───────────────────────────────────────────────────────────
 
-    /// 전체 보드를 터미널 텍스트로 렌더링
+    /// Render the full board as terminal text
     pub fn render(&self) -> String {
         let state = self.state.lock().unwrap();
         let mut out = Vec::new();
@@ -335,13 +335,13 @@ impl AgileBoard {
             crate::utils::trunc(&state.project_name, 30)
         ));
 
-        // 현재 Sprint 정보
+        // Current sprint info
         if let Some(sprint_id) = &state.current_sprint_id {
             if let Some(sprint) = state.sprints.iter().find(|s| &s.id == sprint_id) {
                 let vel = sprint.velocity(&state.stories);
                 let total = sprint.total_points(&state.stories);
                 out.push(format!(
-                    "\n🏃 Sprint {} — {}\n   진행: {}pts / {}pts ({}%)",
+                    "\n🏃 Sprint {} — {}\n   Progress: {}pts / {}pts ({}%)",
                     sprint.number, sprint.goal,
                     vel, total,
                     if total > 0 { vel * 100 / total } else { 0 }
@@ -399,7 +399,7 @@ impl AgileBoard {
         }
 
         // Recent activity
-        out.push("\n── 최근 활동 ──".to_string());
+        out.push("\n── Recent activity ──".to_string());
         for log in state.activity_log.iter().rev().take(5) {
             out.push(format!("  {}", log.format()));
         }
@@ -408,16 +408,16 @@ impl AgileBoard {
         out.join("\n")
     }
 
-    /// Sprint 번다운 차트 (ASCII)
+    /// Sprint burndown chart (ASCII)
     pub fn render_burndown(&self) -> String {
         let state = self.state.lock().unwrap();
         let sprint_id = match &state.current_sprint_id {
             Some(id) => id.clone(),
-            None => return "진행 중인 스프린트 없음".to_string(),
+            None => return "No sprint in progress".to_string(),
         };
         let sprint = match state.sprints.iter().find(|s| s.id == sprint_id) {
             Some(s) => s,
-            None => return "스프린트 데이터 없음".to_string(),
+            None => return "Sprint data not found".to_string(),
         };
 
         let total = sprint.total_points(&state.stories);
@@ -433,35 +433,35 @@ impl AgileBoard {
 
         format!(
             "\n📉 Burndown — Sprint {}\n\
-             완료: {}pts / {}pts ({}%)\n\
+             Done: {}pts / {}pts ({}%)\n\
              [{}] \n\
-             남은 포인트: {}pts",
+             Remaining: {}pts",
             sprint.number, done, total, pct, bar, remaining
         )
     }
 
-    /// Activity log 마지막 N개
+    /// Last N activity log entries
     pub fn recent_activity(&self, n: usize) -> Vec<ActivityLog> {
         let state = self.state.lock().unwrap();
         state.activity_log.iter().rev().take(n).cloned().collect()
     }
 
-    // ─── 영속화 ────────────────────────────────────────────────────────────────
+    // ─── Persistence ────────────────────────────────────────────────────────────────
 
     pub fn save(&self) -> Result<()> {
         let state = self.state.lock().unwrap();
         let json = serde_json::to_string_pretty(&*state)
-            .context("보드 직렬화 실패")?;
+            .context("Board serialization failed")?;
         std::fs::write(&self.path, json)
-            .with_context(|| format!("보드 저장 실패: {}", self.path))?;
+            .with_context(|| format!("Board save failed: {}", self.path))?;
         Ok(())
     }
 
     pub fn load_from(&self, path: &str) -> Result<()> {
         let content = std::fs::read_to_string(path)
-            .with_context(|| format!("보드 파일 읽기 실패: {}", path))?;
+            .with_context(|| format!("Failed to read board file: {}", path))?;
         let new_state: BoardState = serde_json::from_str(&content)
-            .context("보드 파싱 실패")?;
+            .context("Board parsing failed")?;
         let mut state = self.state.lock().unwrap();
         *state = new_state;
         Ok(())
@@ -485,8 +485,8 @@ mod tests {
     }
 
     fn make_story(id: &str) -> UserStory {
-        let mut s = UserStory::new(id, "테스트 스토리", "desc", Priority::Medium, 3);
-        s.add_qa_check("빌드 성공");
+        let mut s = UserStory::new(id, "Test story", "desc", Priority::Medium, 3);
+        s.add_qa_check("Build successful");
         s
     }
 
@@ -496,7 +496,7 @@ mod tests {
         let story = make_story("US-1");
         board.add_story(story).unwrap();
         let got = board.get_story("US-1").unwrap();
-        assert_eq!(got.title, "테스트 스토리");
+        assert_eq!(got.title, "Test story");
     }
 
     #[test]
@@ -525,7 +525,7 @@ mod tests {
     fn sprint_create_and_start() {
         let (board, _dir) = temp_board();
         board.add_story(make_story("US-1")).unwrap();
-        let sprint_id = board.create_sprint("스프린트 1").unwrap();
+        let sprint_id = board.create_sprint("Sprint 1").unwrap();
         board.add_story_to_sprint("US-1", &sprint_id).unwrap();
         board.start_sprint(&sprint_id).unwrap();
         let state = board.shared_state();
@@ -585,7 +585,7 @@ mod tests {
         };
         board2.load_from(&dir.path().join(".agile_board.json").to_string_lossy()).unwrap();
         let s = board2.get_story("US-1").unwrap();
-        assert_eq!(s.title, "테스트 스토리");
+        assert_eq!(s.title, "Test story");
     }
 
     #[test]

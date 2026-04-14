@@ -1,24 +1,24 @@
-//! 애자일 Pipeline — 전체 SDLC 에이전트 오케스트레이션
+//! Agile Pipeline — full SDLC agent orchestration
 //!
-//! 전체 흐름 (full 모드):
-//!   ProductOwner    → User story 생성
-//!   ScrumMaster     → Sprint 계획
-//!   [스토리별]
-//!     BusinessAnalyst → 요구사항 정제 + 비즈니스 케이스
-//!     UXDesigner      → 사용자 흐름 + 와이어프레임
-//!     Architect       → 기술 설계 (외부 자료 검색 포함)
-//!     Developer       → 구현 (TDD)
-//!     Reviewer        → 코드 리뷰
-//!     QAEngineer      → 검증 + Bug report (최대 3회 루프)
-//!     HackerAgent     → OWASP 보안 감사 (최대 5회 루프)
-//!     TechLead        → 기술 게이트 리뷰 + ADR
-//!     TechnicalWriter → 문서화
-//!     DevOpsEngineer  → CI/CD + 인프라 코드
-//!     SRE             → 모니터링 + 런북
-//!     ReleaseManager  → 릴리즈 노트 + 배포 체크리스트
+//! Full flow (full mode):
+//!   ProductOwner    → Create user stories
+//!   ScrumMaster     → Sprint planning
+//!   [per story]
+//!     BusinessAnalyst → Requirements refinement + business case
+//!     UXDesigner      → User flow + wireframe
+//!     Architect       → Technical design (with external research)
+//!     Developer       → Implementation (TDD)
+//!     Reviewer        → Code review
+//!     QAEngineer      → Verification + Bug reports (max 3 retry loop)
+//!     HackerAgent     → OWASP security audit (max 5 retry loop)
+//!     TechLead        → Technical gate review + ADR
+//!     TechnicalWriter → Documentation
+//!     DevOpsEngineer  → CI/CD + infrastructure code
+//!     SRE             → Monitoring + runbook
+//!     ReleaseManager  → Release notes + deployment checklist
 //!   → StoryStatus::Released
 //!
-//! 빠른 모드 (fast=true): BA/UX/DevOps/Writer/SRE/Release 스킵
+//! Fast mode (fast=true): skips BA/UX/DevOps/Writer/SRE/Release
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
@@ -30,7 +30,7 @@ use crate::agile::story::{Priority, StoryStatus, UserStory, BugReport};
 use crate::agile::team::AgileRole;
 use crate::agile::runner::{run_agile_agent, run_agent_simple};
 
-// ─── 체크포인트 (Sprint 중단 후 재개) ─────────────────────────────────────
+// ─── Checkpoint (resume sprint after interruption) ──────────────────────────
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 struct Checkpoint {
@@ -59,7 +59,7 @@ impl Checkpoint {
 
 const MAX_QA_RETRIES: usize = 3;
 
-// ─── 최종 결과 ───────────────────────────────────────────────────────────────
+// ─── Final result ───────────────────────────────────────────────────────────────
 
 pub struct SprintResult {
     pub sprint_id: String,
@@ -72,7 +72,7 @@ pub struct SprintResult {
     pub released_stories: Vec<String>,
 }
 
-// ─── Sprint 메인 진입점 ────────────────────────────────────────────────────
+// ─── Sprint main entry point ───────────────────────────────────────────────────
 
 pub async fn run_agile_sprint(
     client: &OllamaClient,
@@ -83,7 +83,7 @@ pub async fn run_agile_sprint(
     run_agile_sprint_opts(client, project_name, user_request, false, on_progress).await
 }
 
-/// fast=true 이면 BA/UX/DevOps/Writer/SRE/Release 단계를 스킵합니다.
+/// If fast=true, skips BA/UX/DevOps/Writer/SRE/Release stages.
 pub async fn run_agile_sprint_opts(
     client: &OllamaClient,
     project_name: &str,
@@ -94,16 +94,16 @@ pub async fn run_agile_sprint_opts(
     let board = AgileBoard::load_or_new(project_name);
     let hub = NodeHub::new();
 
-    print_divider("애자일 스프린트 시작");
-    on_progress(&format!("📌 프로젝트: {} | 요청: {}",
+    print_divider("Agile Sprint Start");
+    on_progress(&format!("📌 Project: {} | Request: {}",
         project_name, crate::utils::trunc(user_request, 60)));
 
-    // ── 1단계: ProductOwner — User story 생성 ───────────────────────────────
-    print_divider("1/5 · ProductOwner — 요구사항 분석");
-    on_progress("📦 요구사항 분석 및 유저 스토리 생성 중...");
+    // ── Step 1: ProductOwner — create user stories ──────────────────────────────
+    print_divider("1/5 · ProductOwner — Requirements Analysis");
+    on_progress("📦 Analyzing requirements and creating user stories...");
 
     let po_system = format!(
-        "모델: {}\n\n{}\n\n{}",
+        "Model: {}\n\n{}\n\n{}",
         client.model(),
         crate::agent::tools::tool_descriptions(),
         AgileRole::ProductOwner.system_prompt("")
@@ -113,36 +113,36 @@ pub async fn run_agile_sprint_opts(
     let story_ids = parse_and_create_stories(&board, &po_output);
 
     let story_ids = if story_ids.is_empty() {
-        on_progress("⚠️ JSON 파싱 불가 — 기본 스토리 1개 생성");
+        on_progress("⚠️ JSON parsing failed — creating default story");
         let sid = board.next_story_id();
         let mut s = UserStory::new(&sid, user_request, user_request, Priority::High, 5);
-        s.add_acceptance_criteria("기능이 요구사항대로 동작");
-        s.add_acceptance_criteria("빌드 및 테스트 통과");
-        s.add_qa_check("기능 정상 동작 확인");
-        s.add_qa_check("빌드 성공");
-        s.add_qa_check("엣지 케이스 처리");
+        s.add_acceptance_criteria("Feature works as required");
+        s.add_acceptance_criteria("Build and tests pass");
+        s.add_qa_check("Verify feature works correctly");
+        s.add_qa_check("Build successful");
+        s.add_qa_check("Edge cases handled");
         board.add_story(s)?;
         vec![sid]
     } else {
         story_ids
     };
 
-    on_progress(&format!("✅ {} 개 유저 스토리 생성", story_ids.len()));
+    on_progress(&format!("✅ {} user story(ies) created", story_ids.len()));
 
-    // ── 2단계: ScrumMaster — Sprint 계획 ──────────────────────────────────
-    print_divider("2/5 · ScrumMaster — 스프린트 계획");
-    on_progress("🏃 스프린트 계획 수립 중...");
+    // ── Step 2: ScrumMaster — sprint planning ─────────────────────────────────
+    print_divider("2/5 · ScrumMaster — Sprint Planning");
+    on_progress("🏃 Creating sprint plan...");
 
     let sprint_id = board.create_sprint(
-        &format!("{} 구현", crate::utils::trunc(user_request, 50))
+        &format!("{} implementation", crate::utils::trunc(user_request, 50))
     )?;
     for sid in &story_ids {
         board.add_story_to_sprint(sid, &sprint_id)?;
     }
     board.start_sprint(&sprint_id)?;
-    on_progress(&format!("✅ Sprint {} 시작 — {} 개 스토리", sprint_id, story_ids.len()));
+    on_progress(&format!("✅ Sprint {} started — {} story(ies)", sprint_id, story_ids.len()));
 
-    // ── 3단계: 스토리별 개발 사이클 ──────────────────────────────────────────
+    // ── Step 3: per-story development cycle ───────────────────────────────────────
     let mut completed = Vec::new();
     let mut failed_list = Vec::new();
     let mut released_list = Vec::new();
@@ -154,7 +154,7 @@ pub async fn run_agile_sprint_opts(
     let checkpoint_path = format!(".checkpoint-{}.json", sprint_id);
     let mut checkpoint = Checkpoint::load(&checkpoint_path);
     if !checkpoint.done_ids.is_empty() {
-        on_progress(&format!("♻️  체크포인트 발견 — {}개 스토리 건너뜀", checkpoint.done_ids.len()));
+        on_progress(&format!("♻️  Checkpoint found — skipping {} story(ies)", checkpoint.done_ids.len()));
         total_bugs = checkpoint.total_bugs;
         security_findings = checkpoint.security_findings;
         docs_generated = checkpoint.docs_generated;
@@ -170,11 +170,11 @@ pub async fn run_agile_sprint_opts(
 
         // Skip already-processed story
         if checkpoint.done_ids.contains(&sid) {
-            on_progress(&format!("⏭️  [{}] 체크포인트 건너뜀", sid));
+            on_progress(&format!("⏭️  [{}] Skipped via checkpoint", sid));
             continue;
         }
 
-        on_progress(&format!("\n━━━ 스토리 [{}] {} ━━━", sid,
+        on_progress(&format!("\n━━━ Story [{}] {} ━━━", sid,
             crate::utils::trunc(&story.title, 50)));
 
         let story_result = run_story_pipeline(
@@ -188,16 +188,16 @@ pub async fn run_agile_sprint_opts(
                 docs_generated += docs;
                 if released {
                     released_list.push(sid.clone());
-                    on_progress(&format!("🎉 [{}] Released (버그 {}개, 보안 {}개, 문서 {}개)",
+                    on_progress(&format!("🎉 [{}] Released (bugs: {}, security: {}, docs: {})",
                         sid, bugs, sec, docs));
                 } else {
                     completed.push(sid.clone());
-                    on_progress(&format!("✅ [{}] Done (버그 {}개, 보안 {}개)", sid, bugs, sec));
+                    on_progress(&format!("✅ [{}] Done (bugs: {}, security: {})", sid, bugs, sec));
                 }
             }
             None => {
                 failed_list.push(sid.clone());
-                on_progress(&format!("❌ [{}] QA 실패 — 백로그로 이동", sid));
+                on_progress(&format!("❌ [{}] QA failed — moving to backlog", sid));
                 let _ = board.update_story_status(&sid, StoryStatus::Backlog, "ScrumMaster");
             }
         }
@@ -216,7 +216,7 @@ pub async fn run_agile_sprint_opts(
     // Clean up checkpoint file
     let _ = std::fs::remove_file(&checkpoint_path);
 
-    // ── 4단계: Sprint 완료 ─────────────────────────────────────────────────
+    // ── Step 4: sprint complete ─────────────────────────────────────────────────
     board.complete_sprint(&sprint_id)?;
 
     let velocity = {
@@ -226,7 +226,7 @@ pub async fn run_agile_sprint_opts(
         sprint.map(|s| s.velocity(&state.stories)).unwrap_or(0)
     };
 
-    print_divider("스프린트 완료");
+    print_divider("Sprint Complete");
     on_progress(&board.render());
     on_progress(&board.render_burndown());
 
@@ -246,13 +246,13 @@ pub async fn run_agile_sprint_opts(
 
     // Save sprint report to file
     let report_path = save_sprint_report(&result, &board, project_name);
-    on_progress(&format!("📄 스프린트 보고서 저장: {}", report_path));
+    on_progress(&format!("📄 Sprint report saved: {}", report_path));
 
     Ok(result)
 }
 
-// ─── 스토리 개발 Pipeline ──────────────────────────────────────────────────
-/// 반환: Some((bug_count, sec_count, docs_count, released)) = 완료, None = 실패
+// ─── Story development pipeline ────────────────────────────────────────────────
+/// Returns: Some((bug_count, sec_count, docs_count, released)) = done, None = failed
 
 async fn run_story_pipeline(
     client: &OllamaClient,
@@ -263,24 +263,24 @@ async fn run_story_pipeline(
     on_progress: impl Fn(&str) + Clone,
 ) -> Option<(usize, usize, usize, bool)> {
 
-    // ── Pre-dev: BA + UX (fast 모드에서 스킵) ────────────────────────────────
+    // ── Pre-dev: BA + UX (skipped in fast mode) ──────────────────────────────────
     if !fast {
         board.update_story_status(story_id, StoryStatus::UXReview, "ScrumMaster").ok();
 
         let story = board.get_story(story_id)?;
 
         // BusinessAnalyst
-        print_divider("BusinessAnalyst — 요구사항 정제");
-        on_progress(&format!("📊 [{}] 비즈니스 분석 + 요구사항 정제 중...", story_id));
+        print_divider("BusinessAnalyst — Requirements Refinement");
+        on_progress(&format!("📊 [{}] Business analysis + requirements refinement...", story_id));
         let ba_output = run_agile_agent(client, AgileRole::BusinessAnalyst, &story, "", hub, &on_progress).await;
         board.update_story_field(story_id, "BusinessAnalyst", |s| {
             s.business_analysis = Some(ba_output.clone());
         }).ok();
 
         // UXDesigner
-        print_divider("UXDesigner — 사용자 경험 설계");
-        on_progress(&format!("🎨 [{}] UX 설계 + 와이어프레임 작성 중...", story_id));
-        let ux_ctx = format!("## 비즈니스 분석\n{}", crate::utils::trunc(&ba_output, 1000));
+        print_divider("UXDesigner — UX Design");
+        on_progress(&format!("🎨 [{}] UX design + wireframe creation...", story_id));
+        let ux_ctx = format!("## Business Analysis\n{}", crate::utils::trunc(&ba_output, 1000));
         let story = board.get_story(story_id)?;
         let ux_output = run_agile_agent(client, AgileRole::UXDesigner, &story, &ux_ctx, hub, &on_progress).await;
         board.update_story_field(story_id, "UXDesigner", |s| {
@@ -297,8 +297,8 @@ async fn run_story_pipeline(
     board.update_story_status(story_id, StoryStatus::InProgress, "UXDesigner").ok();
 
     // ── Architect ────────────────────────────────────────────────────────────
-    print_divider("Architect — 기술 설계");
-    on_progress(&format!("🏛️  [{}] 기술 설계 + 최신 아키텍처 검색...", story_id));
+    print_divider("Architect — Technical Design");
+    on_progress(&format!("🏛️  [{}] Technical design + architecture research...", story_id));
 
     let story = board.get_story(story_id)?;
     let arch_output = run_agile_agent(client, AgileRole::Architect, &story, "", hub, &on_progress).await;
@@ -308,13 +308,13 @@ async fn run_story_pipeline(
     let _ = hub.send(NodeMessage { from: "Architect".into(), to: "Developer".into(),
         msg_type: MsgType::Result, content: arch_output.clone(), metadata: Default::default() }).await;
 
-    // ── Developer + Reviewer + QA (재시도 루프) ───────────────────────────────
+    // ── Developer + Reviewer + QA (retry loop) ──────────────────────────────────
     let mut total_bugs = 0usize;
 
     for attempt in 0..MAX_QA_RETRIES {
         // Developer
-        print_divider(&format!("Developer — 구현 (시도 {})", attempt + 1));
-        on_progress(&format!("💻 [{}] 구현 중 ({}번째)...", story_id, attempt + 1));
+        print_divider(&format!("Developer — Implementation (attempt {})", attempt + 1));
+        on_progress(&format!("💻 [{}] Implementing (attempt {})...", story_id, attempt + 1));
 
         let story = board.get_story(story_id)?;
         let dev_ctx = build_dev_context(&story, attempt);
@@ -327,12 +327,12 @@ async fn run_story_pipeline(
             msg_type: MsgType::Result, content: dev_output.clone(), metadata: Default::default() }).await;
 
         // Reviewer
-        print_divider("Reviewer — 코드 리뷰");
-        on_progress(&format!("👁️  [{}] 코드 리뷰 중...", story_id));
+        print_divider("Reviewer — Code Review");
+        on_progress(&format!("👁️  [{}] Code reviewing...", story_id));
         board.update_story_status(story_id, StoryStatus::Review, "Developer").ok();
 
         let story = board.get_story(story_id)?;
-        let rev_ctx = format!("## 구현 내용\n{}", crate::utils::trunc(&dev_output, 2000));
+        let rev_ctx = format!("## Implementation\n{}", crate::utils::trunc(&dev_output, 2000));
         let rev_output = run_agile_agent(client, AgileRole::Reviewer, &story, &rev_ctx, hub, &on_progress).await;
 
         board.update_story_field(story_id, "Reviewer", |s| {
@@ -342,22 +342,22 @@ async fn run_story_pipeline(
         let approved = check_approved(&rev_output);
         let _ = hub.send(NodeMessage { from: "Reviewer".into(), to: "Developer".into(),
             msg_type: MsgType::Result,
-            content: format!("리뷰 {}: {}", if approved { "승인" } else { "반려" }, rev_output),
+            content: format!("Review {}: {}", if approved { "approved" } else { "rejected" }, rev_output),
             metadata: Default::default() }).await;
 
         if !approved && attempt < MAX_QA_RETRIES - 1 {
-            on_progress(&format!("❌ [{}] 리뷰 반려 → 재작업", story_id));
+            on_progress(&format!("❌ [{}] Review rejected → rework", story_id));
             board.update_story_status(story_id, StoryStatus::InProgress, "Reviewer").ok();
             continue;
         }
 
         // QA Engineer
-        print_divider("QA — 검증");
-        on_progress(&format!("🔬 [{}] QA 검증 중...", story_id));
+        print_divider("QA — Verification");
+        on_progress(&format!("🔬 [{}] QA verification...", story_id));
         board.update_story_status(story_id, StoryStatus::QA, "Reviewer").ok();
 
         let _ = hub.send(NodeMessage { from: "Reviewer".into(), to: "QAEngineer".into(),
-            msg_type: MsgType::Task, content: format!("[{}] QA 시작", story_id),
+            msg_type: MsgType::Task, content: format!("[{}] QA starting", story_id),
             metadata: Default::default() }).await;
 
         let story = board.get_story(story_id)?;
@@ -375,7 +375,7 @@ async fn run_story_pipeline(
             let _ = board.add_bug(bug, "QAEngineer");
         }
 
-        // QA 체크리스트 업데이트
+        // Update QA checklist
         board.update_story_field(story_id, "QAEngineer", |s| {
             for check in &mut s.qa_checks {
                 check.passed = Some(qa_ok);
@@ -384,12 +384,12 @@ async fn run_story_pipeline(
 
         let _ = hub.send(NodeMessage { from: "QAEngineer".into(), to: "Developer".into(),
             msg_type: MsgType::Status,
-            content: format!("[{}] QA {}", story_id, if qa_ok { "통과 ✅" } else { "실패 ❌" }),
+            content: format!("[{}] QA {}", story_id, if qa_ok { "passed ✅" } else { "failed ❌" }),
             metadata: Default::default() }).await;
 
         if qa_ok {
-            // ── HackerAgent 보안 감사 ─────────────────────────────────────────
-            print_divider("HackerAgent — 보안 감사");
+            // ── HackerAgent security audit ────────────────────────────────────────
+            print_divider("HackerAgent — Security Audit");
             board.update_story_status(story_id, StoryStatus::SecurityReview, "QAEngineer").ok();
 
             let sec_result = crate::agile::hacker::run_security_fix_loop(
@@ -400,31 +400,31 @@ async fn run_story_pipeline(
             on_progress(&sec_result.final_report.render());
 
             if sec_result.approved {
-                on_progress(&format!("✅ [{}] 보안 감사 통과 — 취약점 {}개", story_id, sec_count));
+                on_progress(&format!("✅ [{}] Security audit passed — {} vulnerability(ies)", story_id, sec_count));
             } else {
-                on_progress(&format!("⚠️  [{}] 보안 감사 미수정 {}개 존재",
+                on_progress(&format!("⚠️  [{}] Security audit: {} unresolved vulnerability(ies)",
                     story_id, sec_result.final_report.unfixed_count()));
             }
 
-            // fast 모드: Done 처리 후 조기 반환
+            // fast mode: mark Done and return early
             if fast {
                 board.update_story_status(story_id, StoryStatus::Done, "HackerAgent").ok();
                 return Some((total_bugs, sec_count, 0, false));
             }
 
-            // ── TechLead 게이트 리뷰 ─────────────────────────────────────────
-            print_divider("TechLead — 기술 게이트 리뷰");
+            // ── TechLead gate review ──────────────────────────────────────────────
+            print_divider("TechLead — Technical Gate Review");
             board.update_story_status(story_id, StoryStatus::TechLeadReview, "HackerAgent").ok();
-            on_progress(&format!("🎯 [{}] TechLead 게이트 리뷰 중...", story_id));
+            on_progress(&format!("🎯 [{}] TechLead gate review...", story_id));
 
             let story = board.get_story(story_id)?;
             let tl_ctx = format!(
-                "## 보안 감사 결과\n취약점: {}개 (미수정: {}개)\n\n\
-                 ## 구현 내용\n{}\n\n\
-                 ## QA 결과\n{}",
+                "## Security Audit Result\nVulnerabilities: {} (unresolved: {})\n\n\
+                 ## Implementation\n{}\n\n\
+                 ## QA Result\n{}",
                 sec_count, sec_result.final_report.unfixed_count(),
-                crate::utils::trunc(story.implementation.as_deref().unwrap_or("없음"), 1500),
-                crate::utils::trunc(story.qa_report.as_deref().unwrap_or("없음"), 500),
+                crate::utils::trunc(story.implementation.as_deref().unwrap_or("None"), 1500),
+                crate::utils::trunc(story.qa_report.as_deref().unwrap_or("None"), 500),
             );
             let tl_output = run_agile_agent(client, AgileRole::TechLead, &story, &tl_ctx, hub, &on_progress).await;
             let tl_approved = check_approved(&tl_output);
@@ -434,21 +434,21 @@ async fn run_story_pipeline(
             }).ok();
 
             if !tl_approved {
-                on_progress(&format!("❌ [{}] TechLead 미승인 — 개발로 복귀", story_id));
+                on_progress(&format!("❌ [{}] TechLead not approved — returning to development", story_id));
                 board.update_story_status(story_id, StoryStatus::InProgress, "TechLead").ok();
-                // 한 번 더 시도
+                // Try once more
                 continue;
             }
-            on_progress(&format!("✅ [{}] TechLead 승인", story_id));
+            on_progress(&format!("✅ [{}] TechLead approved", story_id));
 
-            // ── TechnicalWriter — 문서화 ──────────────────────────────────────
-            print_divider("TechnicalWriter — 문서화");
+            // ── TechnicalWriter — documentation ──────────────────────────────────
+            print_divider("TechnicalWriter — Documentation");
             board.update_story_status(story_id, StoryStatus::Documentation, "TechLead").ok();
-            on_progress(&format!("📝 [{}] 문서화 중...", story_id));
+            on_progress(&format!("📝 [{}] Documenting...", story_id));
 
             let story = board.get_story(story_id)?;
             let tw_ctx = format!(
-                "## TechLead ADR\n{}\n\n## 구현\n{}",
+                "## TechLead ADR\n{}\n\n## Implementation\n{}",
                 crate::utils::trunc(&tl_output, 800),
                 crate::utils::trunc(story.implementation.as_deref().unwrap_or(""), 1500),
             );
@@ -459,14 +459,14 @@ async fn run_story_pipeline(
                 s.docs = Some(tw_output.clone());
             }).ok();
 
-            // ── DevOpsEngineer — CI/CD ────────────────────────────────────────
-            print_divider("DevOpsEngineer — CI/CD 설정");
+            // ── DevOpsEngineer — CI/CD ─────────────────────────────────────────────
+            print_divider("DevOpsEngineer — CI/CD Setup");
             board.update_story_status(story_id, StoryStatus::DevOpsSetup, "TechnicalWriter").ok();
-            on_progress(&format!("🚀 [{}] CI/CD + 인프라 코드 생성 중...", story_id));
+            on_progress(&format!("🚀 [{}] CI/CD + infrastructure code generation...", story_id));
 
             let story = board.get_story(story_id)?;
             let devops_ctx = format!(
-                "## 아키텍처 설계\n{}\n\n## 문서 정보\n{}",
+                "## Architecture Design\n{}\n\n## Documentation Info\n{}",
                 crate::utils::trunc(story.plan.as_deref().unwrap_or(""), 1000),
                 crate::utils::trunc(&tw_output, 500),
             );
@@ -475,14 +475,14 @@ async fn run_story_pipeline(
                 s.devops_artifacts = Some(devops_output.clone());
             }).ok();
 
-            // ── SRE — 모니터링 + 런북 ────────────────────────────────────────
-            print_divider("SRE — 모니터링 + 런북");
+            // ── SRE — monitoring + runbook ────────────────────────────────────────
+            print_divider("SRE — Monitoring + Runbook");
             board.update_story_status(story_id, StoryStatus::SRESetup, "DevOpsEngineer").ok();
-            on_progress(&format!("📡 [{}] SLO + 알람 + 런북 생성 중...", story_id));
+            on_progress(&format!("📡 [{}] SLO + alerts + runbook generation...", story_id));
 
             let story = board.get_story(story_id)?;
             let sre_ctx = format!(
-                "## 서비스 정보\n{}\n\n## DevOps 설정\n{}",
+                "## Service Info\n{}\n\n## DevOps Config\n{}",
                 crate::utils::trunc(&story.title, 200),
                 crate::utils::trunc(&devops_output, 800),
             );
@@ -491,14 +491,14 @@ async fn run_story_pipeline(
                 s.sre_config = Some(sre_output.clone());
             }).ok();
 
-            // ── ReleaseManager — 릴리즈 준비 ─────────────────────────────────
-            print_divider("ReleaseManager — 릴리즈 노트");
+            // ── ReleaseManager — release preparation ──────────────────────────────
+            print_divider("ReleaseManager — Release Notes");
             board.update_story_status(story_id, StoryStatus::ReleasePrep, "SRE").ok();
-            on_progress(&format!("🎁 [{}] 릴리즈 노트 + 배포 체크리스트 생성 중...", story_id));
+            on_progress(&format!("🎁 [{}] Release notes + deployment checklist generation...", story_id));
 
             let story = board.get_story(story_id)?;
             let rm_ctx = format!(
-                "## 스토리 정보\n{}\n\n## TechLead ADR\n{}\n\n## SRE SLO\n{}",
+                "## Story Info\n{}\n\n## TechLead ADR\n{}\n\n## SRE SLO\n{}",
                 story.summary(),
                 crate::utils::trunc(&tl_output, 600),
                 crate::utils::trunc(&sre_output, 400),
@@ -510,12 +510,12 @@ async fn run_story_pipeline(
 
             // ── Released ──────────────────────────────────────────────────────
             board.update_story_status(story_id, StoryStatus::Released, "ReleaseManager").ok();
-            on_progress(&format!("🎉 [{}] Released! 문서 {}개, 보안 {}개",
+            on_progress(&format!("🎉 [{}] Released! docs: {}, security: {}",
                 story_id, docs_count, sec_count));
 
             return Some((total_bugs, sec_count, docs_count, true));
         } else {
-            on_progress(&format!("❌ [{}] QA 실패 (버그 {}개)", story_id, total_bugs));
+            on_progress(&format!("❌ [{}] QA failed (bugs: {})", story_id, total_bugs));
             if attempt < MAX_QA_RETRIES - 1 {
                 board.update_story_status(story_id, StoryStatus::InProgress, "QAEngineer").ok();
             } else {
@@ -524,12 +524,12 @@ async fn run_story_pipeline(
         }
     }
 
-    None  // 모든 재시도 실패
+    None  // all retries failed
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────────
 
-/// Sprint 완료 후 마크다운 보고서를 파일로 저장
+/// Save a markdown sprint report to file after sprint completion
 fn save_sprint_report(result: &SprintResult, board: &AgileBoard, project_name: &str) -> String {
     let now = chrono_now();
     let filename = format!("sprint-report-{}-{}.md", result.sprint_id, now);
@@ -538,55 +538,55 @@ fn save_sprint_report(result: &SprintResult, board: &AgileBoard, project_name: &
     let state_guard = state.lock().unwrap();
 
     let mut lines = vec![
-        format!("# 스프린트 보고서 — {} ({})", result.sprint_id, project_name),
-        format!("생성일시: {}\n", now),
-        format!("## 요약"),
-        format!("- 완료 스토리: {} 개", result.completed_stories.len()),
-        format!("- 릴리즈 스토리: {} 개", result.released_stories.len()),
-        format!("- 실패 스토리: {} 개", result.failed_stories.len()),
-        format!("- 총 버그: {} 개", result.total_bugs),
-        format!("- 보안 발견: {} 개", result.security_findings),
-        format!("- 생성 문서: {} 개", result.docs_generated),
-        format!("- 벨로시티: {} pts\n", result.velocity),
+        format!("# Sprint Report — {} ({})", result.sprint_id, project_name),
+        format!("Generated: {}\n", now),
+        format!("## Summary"),
+        format!("- Completed stories: {}", result.completed_stories.len()),
+        format!("- Released stories: {}", result.released_stories.len()),
+        format!("- Failed stories: {}", result.failed_stories.len()),
+        format!("- Total bugs: {}", result.total_bugs),
+        format!("- Security findings: {}", result.security_findings),
+        format!("- Docs generated: {}", result.docs_generated),
+        format!("- Velocity: {} pts\n", result.velocity),
     ];
 
     // Per-story detailed content
-    lines.push("## 스토리 상세".to_string());
+    lines.push("## Story Details".to_string());
     for sid in result.completed_stories.iter().chain(result.released_stories.iter()) {
         if let Some(story) = state_guard.stories.get(sid) {
             lines.push(format!("\n### [{}] {} ({}pts)", story.id, story.title, story.story_points));
-            lines.push(format!("상태: {:?} | 우선순위: {:?}", story.status, story.priority));
+            lines.push(format!("Status: {:?} | Priority: {:?}", story.status, story.priority));
 
             if let Some(ba) = &story.business_analysis {
-                lines.push(format!("\n#### 비즈니스 분석\n{}", crate::utils::trunc(ba, 500)));
+                lines.push(format!("\n#### Business Analysis\n{}", crate::utils::trunc(ba, 500)));
             }
             if let Some(ux) = &story.ux_design {
-                lines.push(format!("\n#### UX 설계\n{}", crate::utils::trunc(ux, 500)));
+                lines.push(format!("\n#### UX Design\n{}", crate::utils::trunc(ux, 500)));
             }
             if let Some(plan) = &story.plan {
-                lines.push(format!("\n#### 아키텍처 설계\n{}", crate::utils::trunc(plan, 800)));
+                lines.push(format!("\n#### Architecture Design\n{}", crate::utils::trunc(plan, 800)));
             }
             if let Some(impl_) = &story.implementation {
-                lines.push(format!("\n#### 구현\n```\n{}\n```", crate::utils::trunc(impl_, 1500)));
+                lines.push(format!("\n#### Implementation\n```\n{}\n```", crate::utils::trunc(impl_, 1500)));
             }
             if let Some(docs) = &story.docs {
-                lines.push(format!("\n#### 문서\n{}", crate::utils::trunc(docs, 600)));
+                lines.push(format!("\n#### Documentation\n{}", crate::utils::trunc(docs, 600)));
             }
             if let Some(devops) = &story.devops_artifacts {
                 lines.push(format!("\n#### DevOps/CI-CD\n{}", crate::utils::trunc(devops, 400)));
             }
             if let Some(sre) = &story.sre_config {
-                lines.push(format!("\n#### SRE 설정\n{}", crate::utils::trunc(sre, 300)));
+                lines.push(format!("\n#### SRE Config\n{}", crate::utils::trunc(sre, 300)));
             }
             if let Some(rn) = &story.release_notes {
-                lines.push(format!("\n#### 릴리즈 노트\n{}", crate::utils::trunc(rn, 400)));
+                lines.push(format!("\n#### Release Notes\n{}", crate::utils::trunc(rn, 400)));
             }
             if !story.bug_reports.is_empty() {
-                lines.push("\n#### 버그 리포트".to_string());
+                lines.push("\n#### Bug Reports".to_string());
                 for bug in &story.bug_reports {
                     lines.push(format!("- [{}] {} ({:?}) — {}",
                         bug.id, bug.title, bug.severity,
-                        if bug.fixed { "수정됨" } else { "미수정" }));
+                        if bug.fixed { "fixed" } else { "unresolved" }));
                 }
             }
         }
@@ -594,10 +594,10 @@ fn save_sprint_report(result: &SprintResult, board: &AgileBoard, project_name: &
 
     // Failed stories
     if !result.failed_stories.is_empty() {
-        lines.push("\n## 실패 스토리".to_string());
+        lines.push("\n## Failed Stories".to_string());
         for sid in &result.failed_stories {
             if let Some(story) = state_guard.stories.get(sid) {
-                lines.push(format!("- [{}] {} — QA 실패", story.id, story.title));
+                lines.push(format!("- [{}] {} — QA failed", story.id, story.title));
             }
         }
     }
@@ -607,14 +607,14 @@ fn save_sprint_report(result: &SprintResult, board: &AgileBoard, project_name: &
 
     match std::fs::write(&filename, &content) {
         Ok(_) => filename,
-        Err(e) => format!("(저장 실패: {})", e),
+        Err(e) => format!("(save failed: {})", e),
     }
 }
 
 fn chrono_now() -> String {
     use std::time::{SystemTime, UNIX_EPOCH};
     let secs = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
-    // YYYYMMDD-HHMMSS 형식
+    // YYYYMMDD-HHMMSS format
     let s = secs;
     let sec = s % 60;
     let min = (s / 60) % 60;
@@ -635,21 +635,21 @@ fn chrono_now() -> String {
 fn build_dev_context(story: &UserStory, attempt: usize) -> String {
     let mut parts = Vec::new();
     if let Some(plan) = &story.plan {
-        parts.push(format!("## 아키텍처 설계\n{}", crate::utils::trunc(plan, 1500)));
+        parts.push(format!("## Architecture Design\n{}", crate::utils::trunc(plan, 1500)));
     }
     if attempt > 0 {
         if let Some(qa) = &story.qa_report {
-            parts.push(format!("## QA 피드백 (수정 필요)\n{}", crate::utils::trunc(qa, 800)));
+            parts.push(format!("## QA Feedback (fix required)\n{}", crate::utils::trunc(qa, 800)));
         }
         if let Some(rev) = &story.review_feedback {
-            parts.push(format!("## 리뷰 피드백\n{}", crate::utils::trunc(rev, 600)));
+            parts.push(format!("## Review Feedback\n{}", crate::utils::trunc(rev, 600)));
         }
         if !story.bug_reports.is_empty() {
             let bugs: Vec<String> = story.bug_reports.iter()
                 .filter(|b| !b.fixed)
                 .map(|b| format!("- [{}] {} ({})", b.id, b.title, b.severity))
                 .collect();
-            parts.push(format!("## 미해결 버그\n{}", bugs.join("\n")));
+            parts.push(format!("## Unresolved Bugs\n{}", bugs.join("\n")));
         }
     }
     parts.join("\n\n")
@@ -658,18 +658,18 @@ fn build_dev_context(story: &UserStory, attempt: usize) -> String {
 fn build_qa_context(story: &UserStory) -> String {
     let mut parts = Vec::new();
     if let Some(impl_) = &story.implementation {
-        parts.push(format!("## 구현 내용\n{}", crate::utils::trunc(impl_, 2000)));
+        parts.push(format!("## Implementation\n{}", crate::utils::trunc(impl_, 2000)));
     }
     let ac = story.acceptance_criteria.iter()
         .enumerate()
         .map(|(i, c)| format!("  {}. {}", i+1, c))
         .collect::<Vec<_>>().join("\n");
-    parts.push(format!("## 수락 기준\n{}", ac));
+    parts.push(format!("## Acceptance Criteria\n{}", ac));
 
     let qa_list = story.qa_checks.iter()
         .map(|c| format!("  - {}", c.description))
         .collect::<Vec<_>>().join("\n");
-    parts.push(format!("## QA 체크리스트\n{}", qa_list));
+    parts.push(format!("## QA Checklist\n{}", qa_list));
     parts.join("\n\n")
 }
 
@@ -699,9 +699,9 @@ fn parse_and_create_stories(board: &AgileBoard, text: &str) -> Vec<String> {
             if let Some(s) = qc.as_str() { story.add_qa_check(s); }
         }
         if story.qa_checks.is_empty() {
-            story.add_qa_check("빌드 성공");
-            story.add_qa_check("기능 동작 확인");
-            story.add_qa_check("엣지 케이스 처리");
+            story.add_qa_check("Build successful");
+            story.add_qa_check("Verify feature behavior");
+            story.add_qa_check("Handle edge cases");
         }
 
         if board.add_story(story).is_ok() { ids.push(sid); }
@@ -733,13 +733,13 @@ fn parse_qa_result(text: &str, story_id: &str, board: &AgileBoard) -> (bool, Vec
         ok
     } else {
         let u = text.to_uppercase();
-        !u.contains("FAIL") && (u.contains("PASS") || u.contains("통과"))
+        !u.contains("FAIL") && (u.contains("PASS") || u.contains("passed"))
     };
     (passed && bugs.is_empty(), bugs)
 }
 
 fn count_docs_written(text: &str) -> usize {
-    // write_file 호출 횟수 또는 파일 확장자 언급 기반으로 문서 수 추정
+    // Estimate doc count from write_file calls or file extension mentions
     let file_exts = [".md", ".rst", ".adoc", ".yaml", ".yml", ".json", ".toml"];
     let tool_calls = text.matches("write_file").count();
     if tool_calls > 0 { return tool_calls; }
@@ -751,7 +751,7 @@ fn check_approved(text: &str) -> bool {
         return v["approved"].as_bool().unwrap_or(false);
     }
     let u = text.to_uppercase();
-    u.contains("APPROVED") || u.contains("승인")
+    u.contains("APPROVED") || u.contains("approved")
 }
 
 fn extract_json(text: &str) -> Option<serde_json::Value> {

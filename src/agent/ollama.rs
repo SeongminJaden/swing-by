@@ -7,16 +7,16 @@ use tracing::{debug, instrument, warn};
 use crate::models::{ChatOptions, ChatRequest, ChatResponse, Message};
 
 const MAX_RETRIES: u32 = 3;
-const RETRY_BASE_MS: u64 = 1000; // 지수 백오프 기본값
+const RETRY_BASE_MS: u64 = 1000; // exponential backoff base
 
-/// Streaming 청크 (stream=true 응답)
+/// Streaming chunk (stream=true response)
 #[derive(Debug, Deserialize)]
 pub struct StreamChunk {
     pub message: Message,
     pub done: bool,
 }
 
-/// Ollama API 클라이언트
+/// Ollama API client
 pub struct OllamaClient {
     client: Client,
     base_url: String,
@@ -27,15 +27,15 @@ impl OllamaClient {
     pub fn new(base_url: impl Into<String>, model: impl Into<String>) -> Self {
         Self {
             client: Client::builder()
-                .timeout(std::time::Duration::from_secs(600)) // 10분 (긴 응답 허용)
+                .timeout(std::time::Duration::from_secs(600)) // 10 min (allow long responses)
                 .build()
-                .expect("HTTP 클라이언트 생성 실패"),
+                .expect("Failed to create HTTP client"),
             base_url: base_url.into(),
             model: model.into(),
         }
     }
 
-    /// 환경변수에서 설정을 읽어 클라이언트 생성
+    /// Create a client from environment variables
     pub fn from_env() -> Self {
         let base_url = std::env::var("OLLAMA_API_URL")
             .unwrap_or_else(|_| "http://localhost:11434".to_string());
@@ -48,13 +48,13 @@ impl OllamaClient {
         &self.model
     }
 
-    /// Ollama 서버 헬스체크
+    /// Health-check the Ollama server
     pub async fn health_check(&self) -> Result<bool> {
         let url = format!("{}/api/tags", self.base_url);
         Ok(self.client.get(&url).send().await.is_ok())
     }
 
-    /// 사용 가능한 모델 목록 조회
+    /// List available models
     pub async fn list_models(&self) -> Result<Vec<String>> {
         let url = format!("{}/api/tags", self.base_url);
         let resp = self
@@ -62,9 +62,9 @@ impl OllamaClient {
             .get(&url)
             .send()
             .await
-            .context("Ollama 서버 연결 실패")?;
+            .context("Failed to connect to Ollama server")?;
 
-        let body: serde_json::Value = resp.json().await.context("응답 파싱 실패")?;
+        let body: serde_json::Value = resp.json().await.context("Failed to parse response")?;
         let models = body["models"]
             .as_array()
             .map(|arr| {
@@ -77,7 +77,7 @@ impl OllamaClient {
         Ok(models)
     }
 
-    /// 채팅 완성 요청 (non-streaming, 재시도 포함)
+    /// Chat completion request (non-streaming, with retries)
     #[instrument(skip(self, messages), fields(model = %self.model, msg_count = messages.len()))]
     pub async fn chat(&self, messages: Vec<Message>) -> Result<ChatResponse> {
         let url = format!("{}/api/chat", self.base_url);
@@ -92,39 +92,39 @@ impl OllamaClient {
             }),
         };
 
-        let mut last_err = anyhow::anyhow!("재시도 한도 초과");
+        let mut last_err = anyhow::anyhow!("Retry limit exceeded");
         for attempt in 0..MAX_RETRIES {
             if attempt > 0 {
                 let delay = RETRY_BASE_MS * (1 << attempt);
-                warn!("Ollama 재시도 {}/{} ({}ms 후)", attempt, MAX_RETRIES, delay);
+                warn!("Ollama retry {}/{} (after {}ms)", attempt, MAX_RETRIES, delay);
                 tokio::time::sleep(std::time::Duration::from_millis(delay)).await;
             }
 
-            debug!("Ollama 요청 전송 (시도 {})", attempt + 1);
+            debug!("Sending Ollama request (attempt {})", attempt + 1);
             let resp = match self.client.post(&url).json(&request).send().await {
                 Ok(r) => r,
-                Err(e) => { last_err = anyhow::anyhow!("연결 실패: {}", e); continue; }
+                Err(e) => { last_err = anyhow::anyhow!("Connection failed: {}", e); continue; }
             };
 
             if !resp.status().is_success() {
                 let status = resp.status();
                 let body = resp.text().await.unwrap_or_default();
-                // 5xx 오류는 재시도, 4xx는 즉시 실패
+                // retry on 5xx, fail immediately on 4xx
                 if status.is_server_error() {
-                    last_err = anyhow::anyhow!("Ollama 서버 오류 {}: {}", status, body);
+                    last_err = anyhow::anyhow!("Ollama server error {}: {}", status, body);
                     continue;
                 }
-                anyhow::bail!("Ollama API 오류 {}: {}", status, body);
+                anyhow::bail!("Ollama API error {}: {}", status, body);
             }
 
-            let chat_resp: ChatResponse = resp.json().await.context("응답 JSON 파싱 실패")?;
-            debug!("응답 수신 완료");
+            let chat_resp: ChatResponse = resp.json().await.context("Failed to parse response JSON")?;
+            debug!("Response received");
             return Ok(chat_resp);
         }
         Err(last_err)
     }
 
-    /// 단일 턴 non-streaming 요청 (Helpers)
+    /// Single-turn non-streaming request (helper)
     #[allow(dead_code)]
     pub async fn chat_simple(&self, prompt: &str) -> Result<String> {
         let msgs = vec![Message::user(prompt)];
@@ -132,8 +132,8 @@ impl OllamaClient {
         Ok(resp.message.content)
     }
 
-    /// 스트리밍 채팅 요청 — 토큰이 도착할 때마다 콜백 호출 (재시도 포함)
-    /// 반환값: 전체 응답 텍스트
+    /// Streaming chat request — calls the callback for each token as it arrives (with retries)
+    /// Returns the full response text
     pub async fn chat_stream<F>(
         &self,
         messages: Vec<Message>,
@@ -154,27 +154,27 @@ impl OllamaClient {
             }),
         };
 
-        let mut last_err = anyhow::anyhow!("재시도 한도 초과");
+        let mut last_err = anyhow::anyhow!("Retry limit exceeded");
         for attempt in 0..MAX_RETRIES {
             if attempt > 0 {
                 let delay = RETRY_BASE_MS * (1 << attempt);
-                warn!("스트리밍 재시도 {}/{} ({}ms 후)", attempt, MAX_RETRIES, delay);
+                warn!("Streaming retry {}/{} (after {}ms)", attempt, MAX_RETRIES, delay);
                 tokio::time::sleep(std::time::Duration::from_millis(delay)).await;
             }
 
             let resp = match self.client.post(&url).json(&request).send().await {
                 Ok(r) => r,
-                Err(e) => { last_err = anyhow::anyhow!("연결 실패: {}", e); continue; }
+                Err(e) => { last_err = anyhow::anyhow!("Connection failed: {}", e); continue; }
             };
 
             if !resp.status().is_success() {
                 let status = resp.status();
                 let body = resp.text().await.unwrap_or_default();
                 if status.is_server_error() {
-                    last_err = anyhow::anyhow!("서버 오류 {}: {}", status, body);
+                    last_err = anyhow::anyhow!("Server error {}: {}", status, body);
                     continue;
                 }
-                anyhow::bail!("Ollama API 오류 {}: {}", status, body);
+                anyhow::bail!("Ollama API error {}: {}", status, body);
             }
 
             let mut stream = resp.bytes_stream();
@@ -182,7 +182,7 @@ impl OllamaClient {
             let mut line_buf = String::new();
 
             while let Some(item) = stream.next().await {
-                let bytes = item.context("스트림 읽기 오류")?;
+                let bytes = item.context("Stream read error")?;
                 line_buf.push_str(&String::from_utf8_lossy(&bytes));
 
                 while let Some(nl) = line_buf.find('\n') {

@@ -3,7 +3,7 @@ use tracing::instrument;
 
 use crate::tools::code_executor::{run_code, ExecutionResult};
 
-/// 코드 디버그 실행 (오류 분석 포함)
+/// Run code with debug analysis (includes error analysis)
 #[instrument(skip(code))]
 pub fn debug_code(language: &str, code: &str) -> Result<DebugResult> {
     let exec = run_code(language, code)?;
@@ -33,65 +33,65 @@ impl std::fmt::Display for DebugResult {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.exec)?;
         if let Some(analysis) = &self.analysis {
-            write!(f, "\n\n[디버그 힌트]\n타입: {}\n힌트: {}", analysis.error_type, analysis.hint)?;
+            write!(f, "\n\n[Debug hint]\nType: {}\nHint: {}", analysis.error_type, analysis.hint)?;
         }
         Ok(())
     }
 }
 
-/// 오류 메시지에서 타입과 힌트 추출
+/// Extract error type and hint from error message
 fn analyze_error(result: &ExecutionResult) -> ErrorAnalysis {
     let combined = format!("{}\n{}", result.stdout, result.stderr);
 
-    // Python 오류
+    // Python errors
     if combined.contains("SyntaxError") {
         return ErrorAnalysis {
             error_type: "SyntaxError".to_string(),
-            hint: "문법 오류입니다. 들여쓰기, 괄호, 콜론을 확인하세요.".to_string(),
+            hint: "Syntax error. Check indentation, brackets, and colons.".to_string(),
         };
     }
     if combined.contains("NameError") {
         return ErrorAnalysis {
             error_type: "NameError".to_string(),
-            hint: "정의되지 않은 변수나 함수를 사용했습니다.".to_string(),
+            hint: "Undefined variable or function used.".to_string(),
         };
     }
     if combined.contains("TypeError") {
         return ErrorAnalysis {
             error_type: "TypeError".to_string(),
-            hint: "잘못된 타입의 값을 사용했습니다.".to_string(),
+            hint: "Wrong type of value used.".to_string(),
         };
     }
     if combined.contains("IndexError") {
         return ErrorAnalysis {
             error_type: "IndexError".to_string(),
-            hint: "리스트/배열의 범위를 벗어난 인덱스입니다.".to_string(),
+            hint: "Index out of range for list/array.".to_string(),
         };
     }
     if combined.contains("ImportError") || combined.contains("ModuleNotFoundError") {
         return ErrorAnalysis {
             error_type: "ImportError".to_string(),
-            hint: "모듈을 찾을 수 없습니다. pip install로 설치하세요.".to_string(),
+            hint: "Module not found. Install it with pip install.".to_string(),
         };
     }
 
-    // Rust 오류
+    // Rust errors
     if combined.contains("error[E") {
         return ErrorAnalysis {
-            error_type: "Rust 컴파일 오류".to_string(),
-            hint: "rustc 오류 코드를 확인하고 `rustc --explain E{code}`를 실행해보세요.".to_string(),
+            error_type: "Rust compile error".to_string(),
+            hint: "Check the rustc error code and run `rustc --explain E{code}`.".to_string(),
         };
     }
     if combined.contains("cannot borrow") {
         return ErrorAnalysis {
-            error_type: "Borrow Checker 오류".to_string(),
-            hint: "소유권 규칙 위반입니다. 참조(&)와 클론(.clone())을 검토하세요.".to_string(),
+            error_type: "Borrow checker error".to_string(),
+            hint: "Ownership rule violation. Review references (&) and clones (.clone()).".to_string(),
         };
     }
 
-    // 일반
+    // General
     ErrorAnalysis {
-        error_type: "런타임 오류".to_string(),
-        hint: format!("종료 코드: {}. stderr를 확인하세요.", result.exit_code),
+        error_type: "Runtime error".to_string(),
+        hint: format!("Exit code: {}. Check stderr.", result.exit_code),
     }
 }

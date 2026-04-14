@@ -26,27 +26,27 @@ impl std::fmt::Display for CommandResult {
     }
 }
 
-/// 셸 명령어 실행 (타임아웃 30초, 출력 16KB 제한)
+/// Execute a shell command (30s timeout, 16KB output limit)
 #[instrument(skip(cmd))]
 pub fn run_shell(cmd: &str) -> Result<CommandResult> {
     let parts = shlex::split(cmd)
-        .ok_or_else(|| anyhow::anyhow!("명령어 파싱 실패: {}", cmd))?;
+        .ok_or_else(|| anyhow::anyhow!("Failed to parse command: {}", cmd))?;
 
     if parts.is_empty() {
-        anyhow::bail!("빈 명령어");
+        anyhow::bail!("Empty command");
     }
 
-    // 위험 명령어 기본 차단
+    // Block dangerous commands by default
     let first = parts[0].to_lowercase();
     if matches!(first.as_str(), "rm" | "dd" | "mkfs" | "fdisk" | "shutdown" | "reboot") {
-        // 단순 경고만 하고 실행 (사용자가 의도한 경우 허용)
-        // 필요 시 아래 줄을 활성화하여 차단 가능
-        // anyhow::bail!("안전을 위해 '{}' 명령어는 차단되었습니다.", first);
+        // Just warn and allow execution (user may have intended this)
+        // Uncomment the line below to block instead
+        // anyhow::bail!("Command '{}' is blocked for safety.", first);
     }
 
     let (program, args) = parts.split_first().unwrap();
 
-    // 타임아웃을 위해 스레드에서 실행
+    // Run in a thread for timeout support
     let timeout = std::time::Duration::from_secs(DEFAULT_TIMEOUT_SECS);
     let program_owned = program.clone();
     let args_owned: Vec<String> = args.to_vec();
@@ -64,8 +64,8 @@ pub fn run_shell(cmd: &str) -> Result<CommandResult> {
 
     let output = rx
         .recv_timeout(timeout)
-        .with_context(|| format!("명령어 타임아웃 ({}초): {}", DEFAULT_TIMEOUT_SECS, cmd))?
-        .with_context(|| format!("명령어 실행 실패: {}", program))?;
+        .with_context(|| format!("Command timeout ({}s): {}", DEFAULT_TIMEOUT_SECS, cmd))?
+        .with_context(|| format!("Command execution failed: {}", program))?;
 
     let stdout = truncate_output(String::from_utf8_lossy(&output.stdout).to_string());
     let stderr = truncate_output(String::from_utf8_lossy(&output.stderr).to_string());
@@ -81,40 +81,40 @@ pub fn run_shell(cmd: &str) -> Result<CommandResult> {
 fn truncate_output(s: String) -> String {
     if s.len() > MAX_OUTPUT_BYTES {
         let cut = crate::utils::trunc(&s, MAX_OUTPUT_BYTES);
-        format!("{}\n[출력 잘림: 총 {}바이트]", cut, s.len())
+        format!("{}\n[output truncated: total {} bytes]", cut, s.len())
     } else {
         s
     }
 }
 
-/// 현재 디렉토리 반환
+/// Return the current working directory
 pub fn current_dir() -> Result<String> {
     std::env::current_dir()
-        .context("현재 디렉토리 확인 실패")
+        .context("Failed to get current directory")
         .map(|p| p.to_string_lossy().to_string())
 }
 
-/// 디렉토리 변경
+/// Change the working directory
 pub fn change_dir(path: &str) -> Result<()> {
     std::env::set_current_dir(path)
-        .with_context(|| format!("디렉토리 변경 실패: {}", path))
+        .with_context(|| format!("Failed to change directory: {}", path))
 }
 
-/// 환경변수 조회
+/// Get an environment variable
 pub fn get_env(key: &str) -> Option<String> {
     std::env::var(key).ok()
 }
 
-/// 환경변수 설정 (현재 프로세스 내)
+/// Set an environment variable (current process only)
 pub fn set_env(key: &str, value: &str) -> Result<()> {
     if key.is_empty() {
-        anyhow::bail!("환경변수 키가 비어있습니다");
+        anyhow::bail!("Environment variable key is empty");
     }
     std::env::set_var(key, value);
     Ok(())
 }
 
-/// 환경변수 목록 (필터 옵션)
+/// List environment variables (optional filter)
 pub fn env_list(filter: &str) -> Vec<(String, String)> {
     let filter_lower = filter.to_lowercase();
     let mut vars: Vec<(String, String)> = std::env::vars()

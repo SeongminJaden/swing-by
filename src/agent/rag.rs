@@ -14,9 +14,9 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 const INDEX_FILE: &str = ".rag_index.json";
-const MAX_CHUNK_SIZE: usize = 800;   // 청크당 최대 문자 수
-const TOP_K: usize = 5;              // 쿼리 시 반환할 상위 청크 수
-const MAX_FILES: usize = 500;        // 최대 인덱싱 파일 수
+const MAX_CHUNK_SIZE: usize = 800;   // max characters per chunk
+const TOP_K: usize = 5;              // top chunks to return per query
+const MAX_FILES: usize = 500;        // max files to index
 
 // Extensions to index
 const INDEXED_EXTS: &[&str] = &[
@@ -35,7 +35,7 @@ pub struct Chunk {
     pub file: String,
     pub start_line: usize,
     pub content: String,
-    pub tokens: Vec<String>,  // 소문자 키워드
+    pub tokens: Vec<String>,  // lowercase keywords
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -57,13 +57,13 @@ impl RagIndex {
             .map(|d| d.as_secs()).unwrap_or(0)
             .saturating_sub(self.indexed_at);
         format!(
-            "루트: {}\n파일: {} 개\n청크: {} 개\n인덱싱: {}분 전",
+"Root: {}\nFiles: {}\nChunks: {}\nIndexed: {} min ago",
             self.root, self.file_count, self.chunks.len(), age_secs / 60
         )
     }
 }
 
-// ─── 인덱싱 ──────────────────────────────────────────────────────────────────
+// ─── Indexing ──────────────────────────────────────────────────────────────────────────────
 
 pub fn index_codebase(root: &str) -> Result<RagIndex> {
     let root_path = PathBuf::from(root).canonicalize().unwrap_or_else(|_| PathBuf::from(root));
@@ -158,13 +158,13 @@ pub fn load_index() -> Option<RagIndex> {
     serde_json::from_str(&json).ok()
 }
 
-// ─── 검색 ────────────────────────────────────────────────────────────────────
+// ─── Search ─────────────────────────────────────────────────────────────────────────────────
 
 pub fn search<'a>(index: &'a RagIndex, query: &str) -> Vec<&'a Chunk> {
     let query_tokens = tokenize(query);
     if query_tokens.is_empty() { return vec![]; }
 
-    // TF 점수: 청크에 쿼리 토큰이 몇 번 나타나는지
+    // TF score: how many times each query token appears in the chunk
     let mut scores: Vec<(usize, f64)> = index.chunks.iter().enumerate().map(|(i, chunk)| {
         let token_freq: HashMap<&str, usize> = chunk.tokens.iter().fold(HashMap::new(), |mut m, t| {
             *m.entry(t.as_str()).or_insert(0) += 1;
@@ -173,7 +173,7 @@ pub fn search<'a>(index: &'a RagIndex, query: &str) -> Vec<&'a Chunk> {
         let score: f64 = query_tokens.iter().map(|qt| {
             *token_freq.get(qt.as_str()).unwrap_or(&0) as f64
         }).sum();
-        // 파일 이름에 쿼리 토큰이 있으면 가중치
+        // bonus if query tokens appear in the file name
         let file_bonus: f64 = query_tokens.iter()
             .filter(|qt| chunk.file.to_lowercase().contains(qt.as_str()))
             .count() as f64 * 2.0;
@@ -189,14 +189,14 @@ pub fn search<'a>(index: &'a RagIndex, query: &str) -> Vec<&'a Chunk> {
         .collect()
 }
 
-/// 검색 결과를 컨텍스트 문자열로 변환
+/// Convert search results to a context string
 pub fn build_context(chunks: &[&Chunk]) -> String {
     if chunks.is_empty() {
         return String::new();
     }
-    let mut parts = vec!["## 관련 코드 (RAG 검색 결과)".to_string()];
+    let mut parts = vec!["## Relevant code (RAG search results)".to_string()];
     for chunk in chunks {
-        parts.push(format!("### {} ({}번째 줄~)\n```\n{}\n```",
+        parts.push(format!("### {} (line {}~)\n```\n{}\n```",
             chunk.file, chunk.start_line, crate::utils::trunc(&chunk.content, 600)));
     }
     parts.join("\n\n")

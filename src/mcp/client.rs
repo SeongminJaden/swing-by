@@ -1,24 +1,24 @@
-//! MCP (Model Context Protocol) 클라이언트
+//! MCP (Model Context Protocol) client
 //!
-//! MCP 서버에 연결하여 툴을 호출합니다.
-//! 지원 트랜스포트:
-//!   - stdio: 로컬 프로세스 (가장 일반적)
-//!   - http: HTTP/SSE 서버
+//! Connects to MCP servers and calls tools.
+//! Supported transports:
+//!   - stdio: local process (most common)
+//!   - http: HTTP/SSE server
 //!
-//! MCP 서버 설정은 ~/.claude/mcp_servers.json 또는
-//! 프로젝트의 .mcp_servers.json 에서 자동으로 로드합니다.
+//! MCP server config is loaded automatically from ~/.claude/mcp_servers.json or
+//! the project's .mcp_servers.json.
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-// ─── MCP 툴 정의 ─────────────────────────────────────────────────────────────
+// ─── MCP tool definition ─────────────────────────────────────────────────────────────
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct McpTool {
     pub name: String,
     pub description: String,
-    pub server: String,  // 이 툴을 제공하는 서버 이름
+    pub server: String,  // name of server providing this tool
     pub input_schema: serde_json::Value,
 }
 
@@ -29,22 +29,22 @@ pub struct McpToolResult {
     pub is_error: bool,
 }
 
-// ─── MCP 서버 설정 ───────────────────────────────────────────────────────────
+// ─── MCP server configuration ───────────────────────────────────────────────────────────
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct McpServerConfig {
     pub name: String,
     #[serde(rename = "type")]
     pub transport: String,  // "stdio" | "http"
-    // stdio 용
+    // for stdio
     pub command: Option<String>,
     pub args: Option<Vec<String>>,
     pub env: Option<HashMap<String, String>>,
-    // http 용
+    // for http
     pub url: Option<String>,
 }
 
-// ─── MCP 메시지 타입 ─────────────────────────────────────────────────────────
+// ─── MCP message types ─────────────────────────────────────────────────────────
 
 #[derive(Debug, Serialize)]
 struct JsonRpcRequest {
@@ -70,7 +70,7 @@ struct JsonRpcError {
     message: String,
 }
 
-// ─── MCP 클라이언트 ──────────────────────────────────────────────────────────
+// ─── MCP client ──────────────────────────────────────────────────────────
 
 pub struct McpClient {
     pub config: McpServerConfig,
@@ -89,12 +89,12 @@ impl McpClient {
         self.request_id.fetch_add(1, std::sync::atomic::Ordering::SeqCst)
     }
 
-    /// 서버에서 툴 목록을 가져옴
+    /// Fetch tool list from server
     pub async fn list_tools(&self) -> Result<Vec<McpTool>> {
         let result = self.call_method("tools/list", serde_json::json!({})).await?;
 
         let tools = result["tools"].as_array()
-            .ok_or_else(|| anyhow::anyhow!("tools/list 응답에 tools 배열 없음"))?;
+            .ok_or_else(|| anyhow::anyhow!("tools/list response missing tools array"))?;
 
         let mut out = Vec::new();
         for t in tools {
@@ -113,7 +113,7 @@ impl McpClient {
         Ok(out)
     }
 
-    /// 툴 호출
+    /// Call a tool
     pub async fn call_tool(&self, tool_name: &str, arguments: serde_json::Value) -> Result<McpToolResult> {
         let params = serde_json::json!({
             "name": tool_name,
@@ -122,7 +122,7 @@ impl McpClient {
 
         let result = self.call_method("tools/call", params).await?;
 
-        // MCP 툴 결과 Parsing
+        // Parse MCP tool result
         let is_error = result["isError"].as_bool().unwrap_or(false);
         let content = result["content"].as_array()
             .map(|arr| {
@@ -146,22 +146,22 @@ impl McpClient {
         })
     }
 
-    /// JSON-RPC 메서드 호출 (트랜스포트별 분기)
+    /// Call JSON-RPC method (dispatch by transport)
     async fn call_method(&self, method: &str, params: serde_json::Value) -> Result<serde_json::Value> {
         match self.config.transport.as_str() {
             "stdio" => self.call_stdio(method, params).await,
             "http" | "sse" => self.call_http(method, params).await,
-            t => anyhow::bail!("지원하지 않는 MCP 트랜스포트: {}", t),
+            t => anyhow::bail!("Unsupported MCP transport: {}", t),
         }
     }
 
-    /// stdio 트랜스포트: 자식 프로세스를 생성하여 stdin/stdout으로 통신
+    /// stdio transport: spawn child process and communicate via stdin/stdout
     async fn call_stdio(&self, method: &str, params: serde_json::Value) -> Result<serde_json::Value> {
         use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
         use tokio::process::Command;
 
         let cmd = self.config.command.as_deref()
-            .ok_or_else(|| anyhow::anyhow!("stdio MCP 서버에 command 필드 필요: {}", self.config.name))?;
+            .ok_or_else(|| anyhow::anyhow!("stdio MCP server requires command field: {}", self.config.name))?;
         let args = self.config.args.as_deref().unwrap_or(&[]);
 
         let mut child = Command::new(cmd)
@@ -171,12 +171,12 @@ impl McpClient {
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::null())
             .spawn()
-            .with_context(|| format!("MCP 서버 실행 실패: {} {}", cmd, args.join(" ")))?;
+            .with_context(|| format!("Failed to launch MCP server: {} {}", cmd, args.join(" ")))?;
 
         let mut stdin = child.stdin.take().unwrap();
         let stdout = child.stdout.take().unwrap();
 
-        // MCP는 초기화 핸드쉐이크가 필요
+        // MCP requires initialization handshake
         let init_req = serde_json::to_string(&JsonRpcRequest {
             jsonrpc: "2.0".into(),
             id: self.next_id(),
@@ -189,7 +189,7 @@ impl McpClient {
         })?;
         stdin.write_all(format!("{}\n", init_req).as_bytes()).await?;
 
-        // 실제 요청
+        // Actual request
         let req = serde_json::to_string(&JsonRpcRequest {
             jsonrpc: "2.0".into(),
             id: self.next_id(),
@@ -199,10 +199,10 @@ impl McpClient {
         stdin.write_all(format!("{}\n", req).as_bytes()).await?;
         stdin.shutdown().await?;
 
-        // 응답 읽기 (두 번째 줄이 실제 응답)
+        // Read response (second line is actual response)
         let mut reader = BufReader::new(stdout);
         let mut _init_line = String::new();
-        reader.read_line(&mut _init_line).await?;  // initialize 응답 스킵
+        reader.read_line(&mut _init_line).await?;  // skip initialize response
 
         let mut response_line = String::new();
         reader.read_line(&mut response_line).await?;
@@ -210,19 +210,19 @@ impl McpClient {
         let _ = child.kill().await;
 
         let resp: JsonRpcResponse = serde_json::from_str(response_line.trim())
-            .with_context(|| format!("MCP 응답 파싱 실패: {}", crate::utils::trunc(&response_line, 200)))?;
+            .with_context(|| format!("Failed to parse MCP response: {}", crate::utils::trunc(&response_line, 200)))?;
 
         if let Some(err) = resp.error {
-            anyhow::bail!("MCP 오류 {}: {}", err.code, err.message);
+            anyhow::bail!("MCP error {}: {}", err.code, err.message);
         }
 
-        resp.result.ok_or_else(|| anyhow::anyhow!("MCP 응답에 result 없음"))
+        resp.result.ok_or_else(|| anyhow::anyhow!("MCP response missing result"))
     }
 
-    /// HTTP 트랜스포트: SSE 또는 REST 엔드포인트
+    /// HTTP transport: SSE or REST endpoint
     async fn call_http(&self, method: &str, params: serde_json::Value) -> Result<serde_json::Value> {
         let base_url = self.config.url.as_deref()
-            .ok_or_else(|| anyhow::anyhow!("http MCP 서버에 url 필드 필요: {}", self.config.name))?;
+            .ok_or_else(|| anyhow::anyhow!("http MCP server requires url field: {}", self.config.name))?;
 
         let client = reqwest::Client::new();
         let req_body = serde_json::json!({
@@ -237,26 +237,26 @@ impl McpClient {
             .json(&req_body)
             .send()
             .await
-            .with_context(|| format!("MCP HTTP 요청 실패: {}", base_url))?;
+            .with_context(|| format!("MCP HTTP request failed: {}", base_url))?;
 
         let resp_json: JsonRpcResponse = resp.json().await
-            .context("MCP HTTP 응답 파싱 실패")?;
+            .context("Failed to parse MCP HTTP response")?;
 
         if let Some(err) = resp_json.error {
-            anyhow::bail!("MCP 오류 {}: {}", err.code, err.message);
+            anyhow::bail!("MCP error {}: {}", err.code, err.message);
         }
 
-        resp_json.result.ok_or_else(|| anyhow::anyhow!("MCP HTTP 응답에 result 없음"))
+        resp_json.result.ok_or_else(|| anyhow::anyhow!("MCP HTTP response missing result"))
     }
 }
 
-// ─── 설정 파일 로드 ──────────────────────────────────────────────────────────
+// ─── Config file loading ──────────────────────────────────────────────────────────
 
-/// ~/.claude/mcp_servers.json 또는 ./.mcp_servers.json 에서 서버 설정 로드
+/// Load server config from ~/.claude/mcp_servers.json or ./.mcp_servers.json
 pub fn load_mcp_configs() -> Vec<McpServerConfig> {
     let mut configs = Vec::new();
 
-    // 전역 설정
+    // Global config
     if let Ok(home) = std::env::var("HOME") {
         let path = std::path::PathBuf::from(home).join(".claude").join("mcp_servers.json");
         if let Ok(content) = std::fs::read_to_string(&path) {
@@ -266,10 +266,10 @@ pub fn load_mcp_configs() -> Vec<McpServerConfig> {
         }
     }
 
-    // 프로젝트 설정
+    // Project config
     if let Ok(content) = std::fs::read_to_string(".mcp_servers.json") {
         if let Ok(list) = serde_json::from_str::<Vec<McpServerConfig>>(&content) {
-            // 이름 충돌 시 프로젝트 설정이 우선
+            // Project config takes priority on name conflict
             for cfg in list {
                 configs.retain(|c: &McpServerConfig| c.name != cfg.name);
                 configs.push(cfg);
