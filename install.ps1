@@ -92,17 +92,35 @@ if ($ollamaInstalled) {
 } else {
     $answer = Ask "Install Ollama? [Y/n]"
     if ($answer -ne 'n' -and $answer -ne 'N') {
-        Write-Info "Downloading Ollama installer..."
-        $ollamaInstaller = "$env:TEMP\OllamaSetup.exe"
-        Invoke-WebRequest "https://ollama.ai/download/OllamaSetup.exe" -OutFile $ollamaInstaller
-        Write-Info "Running Ollama installer..."
-        Start-Process $ollamaInstaller -Wait -ArgumentList "/SILENT"
-        Remove-Item $ollamaInstaller -Force
+        $installed = $false
+        # Try winget first (fastest)
+        if ($useWinget) {
+            Write-Info "Installing Ollama via winget..."
+            try {
+                winget install --id Ollama.Ollama --accept-source-agreements --accept-package-agreements -e
+                $installed = $true
+            } catch {
+                Write-Warn "winget install failed, falling back to direct download..."
+            }
+        }
+        if (-not $installed) {
+            Write-Info "Downloading Ollama installer..."
+            $ollamaInstaller = "$env:TEMP\OllamaSetup.exe"
+            try {
+                Invoke-WebRequest "https://ollama.com/download/OllamaSetup.exe" -OutFile $ollamaInstaller -UseBasicParsing
+                Write-Info "Running Ollama installer..."
+                Start-Process $ollamaInstaller -Wait -ArgumentList "/SILENT"
+                Remove-Item $ollamaInstaller -Force -ErrorAction SilentlyContinue
+                $installed = $true
+            } catch {
+                Write-Err "Ollama install failed. Download manually from: https://ollama.com"
+            }
+        }
         # Refresh PATH
         $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
         Write-Success "Ollama installed"
     } else {
-        Write-Err "Ollama is required. Download from: https://ollama.ai"
+        Write-Err "Ollama is required. Download from: https://ollama.com"
     }
 }
 
@@ -217,13 +235,13 @@ Write-Success "Environment variables set (OLLAMA_MODEL=$MODEL)"
 
 # ─── Desktop IDE (optional) ───────────────────────────────────────────────────
 Write-Host ""
-Write-Host "-- Desktop IDE (optional) --------------------------------" -ForegroundColor White
+Write-Host "-- Desktop IDE -------------------------------------------" -ForegroundColor White
 Write-Host ""
 Write-Host "  Swing-by IDE is a GUI desktop app for the multi-agent pipeline." -ForegroundColor Gray
 Write-Host ""
-$ideAnswer = Ask "Install Swing-by Desktop IDE? [y/N]"
+$ideAnswer = Ask "Install Swing-by Desktop IDE? [Y/n]"
 $ideInstalled = $false
-if ($ideAnswer -eq 'y' -or $ideAnswer -eq 'Y') {
+if ($ideAnswer -ne 'n' -and $ideAnswer -ne 'N') {
     $IDE_URL  = "https://github.com/$REPO/releases/latest/download/swing-by-ide-windows-setup.exe"
     $IDE_PATH = "$env:TEMP\swing-by-ide-setup.exe"
     Write-Info "Downloading Swing-by IDE..."
