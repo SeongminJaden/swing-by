@@ -31,6 +31,11 @@
   "build": {
     "extends": null,
     "appId": "com.swing-by.ide",
+    "publish": {
+      "provider": "github",
+      "owner": "SeongminJaden",
+      "repo": "swing-by"
+    },
     "productName": "Swing-by IDE",
     "copyright": "Copyright © 2025 SeongminJaden",
     "directories": {
