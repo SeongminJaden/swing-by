@@ -19,7 +19,7 @@ jobs:
       matrix:
         include:
           - target: x86_64-unknown-linux-gnu
-            os: ubuntu-latest
+            os: ubuntu-22.04
             artifact: ai_agent-linux-x86_64
 
           - target: aarch64-unknown-linux-gnu
@@ -79,7 +79,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
+          - os: ubuntu-22.04
             rust_target: x86_64-unknown-linux-gnu
             electron_args: --linux
             artifacts: "editor/release/*.AppImage"
