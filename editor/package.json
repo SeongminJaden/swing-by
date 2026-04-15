@@ -11,9 +11,9 @@
     "build:all": "npm run build && npm run build:electron",
     "pack": "npm run build:all && electron-builder --dir",
     "dist": "npm run build:all && electron-builder",
-    "dist:linux": "npm run build:all && electron-builder --linux",
-    "dist:mac": "npm run build:all && electron-builder --mac",
-    "dist:win": "npm run build:all && electron-builder --win",
+    "dist:linux": "npm run build:all && electron-builder --linux --publish never",
+    "dist:mac": "npm run build:all && electron-builder --mac --publish never",
+    "dist:win": "npm run build:all && electron-builder --win --publish never",
     "preview": "vite preview"
   },
   "keywords": [
@@ -24,6 +24,10 @@
   ],
   "author": "SeongminJaden",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SeongminJaden/swing-by.git"
+  },
   "build": {
     "extends": null,
     "appId": "com.swing-by.ide",
@@ -42,11 +46,6 @@
       {
         "from": "../target/release/ai_agent",
         "to": "ai_agent",
-        "filter": ["**/*"]
-      },
-      {
-        "from": "../target/release/ai_agent.exe",
-        "to": "ai_agent.exe",
         "filter": ["**/*"]
       }
     ],
@@ -68,7 +67,13 @@
       "target": [
         { "target": "nsis", "arch": ["x64"] }
       ],
-      "artifactName": "swing-by-ide-${version}-setup.exe"
+      "artifactName": "swing-by-ide-${version}-setup.exe",
+      "extraResources": [
+        {
+          "from": "../target/release/ai_agent.exe",
+          "to": "ai_agent.exe"
+        }
+      ]
     },
     "nsis": {
       "oneClick": false,
