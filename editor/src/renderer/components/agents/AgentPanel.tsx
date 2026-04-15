@@ -145,7 +145,7 @@ export const AgentPanel: React.FC = () => {
           padding: '6px 10px', fontSize: 10, color: 'var(--color-accent-warning, #f0a030)',
           background: 'rgba(240,160,48,0.08)', borderBottom: '1px solid var(--color-border-primary)',
         }}>
-          ai_agent binary not found. Run <code>cargo build --release</code>.
+          AI Agent를 찾을 수 없습니다. 앱을 재설치하거나 Ollama가 실행 중인지 확인하세요.
         </div>
       )}
 

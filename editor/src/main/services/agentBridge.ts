@@ -43,6 +43,13 @@ function ensureAgent(): boolean {
   if (agentProcess && !agentProcess.killed) return true;
 
   const binaryPath = getAgentBinaryPath();
+
+  // Ensure binary is executable (needed after extraResources unpack)
+  if (process.platform !== 'win32') {
+    try { require('fs').chmodSync(binaryPath, 0o755); } catch {}
+  }
+
+  console.log('[agentBridge] spawning:', binaryPath);
   try {
     agentProcess = spawn(binaryPath, ['--ipc-stdio'], {
       stdio: ['pipe', 'pipe', 'pipe'],
@@ -101,7 +108,8 @@ function ensureAgent(): boolean {
 
     return true;
   } catch (e: any) {
-    console.error('[agentBridge] Failed to spawn agent:', e.message);
+    console.error('[agentBridge] Failed to spawn agent:', binaryPath, e.message);
+    mainWin?.webContents.send('agent:log', `[ERROR] Failed to start agent: ${e.message} (path: ${binaryPath})`);
     return false;
   }
 }
