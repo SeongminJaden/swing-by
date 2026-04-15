@@ -8,7 +8,6 @@ on:
 env:
   CARGO_TERM_COLOR: always
   BINARY_NAME: ai_agent
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 # ─── Job 1: Rust CLI binaries ────────────────────────────────────────────────
 jobs:
@@ -40,7 +39,7 @@ jobs:
             artifact: ai_agent-windows-x86_64.exe
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -67,7 +66,7 @@ jobs:
           Copy-Item "target/${{ matrix.target }}/release/${{ env.BINARY_NAME }}.exe" "${{ matrix.artifact }}"
 
       - name: Upload CLI artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: ${{ matrix.artifact }}
           path: ${{ matrix.artifact }}
@@ -84,24 +83,28 @@ jobs:
             rust_target: x86_64-unknown-linux-gnu
             electron_args: --linux
             artifacts: "editor/release/*.AppImage"
+            artifact_name: ide-linux-x64
 
           - os: macos-latest
             rust_target: aarch64-apple-darwin
             electron_args: --mac --arm64
             artifacts: "editor/release/*.dmg"
+            artifact_name: ide-macos-arm64
 
           - os: macos-latest
             rust_target: x86_64-apple-darwin
             electron_args: --mac --x64
             artifacts: "editor/release/*.dmg"
+            artifact_name: ide-macos-x64
 
           - os: windows-latest
             rust_target: x86_64-pc-windows-msvc
             electron_args: --win
             artifacts: "editor/release/*.exe"
+            artifact_name: ide-windows-x64
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # ── Rust: build ai_agent binary ──────────────────────────────────────
       - name: Install Rust
@@ -129,7 +132,7 @@ jobs:
 
       # ── Node.js + Electron build ─────────────────────────────────────────
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: '20'
           cache: 'npm'
@@ -166,9 +169,9 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload IDE artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
-          name: ide-${{ matrix.os }}
+          name: ${{ matrix.artifact_name }}
           path: ${{ matrix.artifacts }}
           if-no-files-found: warn
 
@@ -180,10 +183,10 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           path: artifacts
 
