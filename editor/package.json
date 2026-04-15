@@ -42,27 +42,25 @@
       "node_modules/**/*",
       "package.json"
     ],
-    "extraResources": [
-      {
-        "from": "../target/release/ai_agent",
-        "to": "ai_agent",
-        "filter": ["**/*"],
-        "optional": true
-      }
-    ],
     "linux": {
       "target": [
         { "target": "AppImage", "arch": ["x64", "arm64"] }
       ],
       "category": "Development",
-      "artifactName": "swing-by-ide-${version}-${arch}.AppImage"
+      "artifactName": "swing-by-ide-${version}-${arch}.AppImage",
+      "extraResources": [
+        { "from": "../target/release/ai_agent", "to": "ai_agent" }
+      ]
     },
     "mac": {
       "target": [
         { "target": "dmg", "arch": ["x64", "arm64"] }
       ],
       "category": "public.app-category.developer-tools",
-      "artifactName": "swing-by-ide-${version}-${arch}.dmg"
+      "artifactName": "swing-by-ide-${version}-${arch}.dmg",
+      "extraResources": [
+        { "from": "../target/release/ai_agent", "to": "ai_agent" }
+      ]
     },
     "win": {
       "target": [
@@ -70,10 +68,7 @@
       ],
       "artifactName": "swing-by-ide-${version}-setup.exe",
       "extraResources": [
-        {
-          "from": "../target/release/ai_agent.exe",
-          "to": "ai_agent.exe"
-        }
+        { "from": "../target/release/ai_agent.exe", "to": "ai_agent.exe" }
       ]
     },
     "nsis": {
