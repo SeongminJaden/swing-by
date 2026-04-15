@@ -1,0 +1,1764 @@
+/* ===== IDE 페이지 스타일 =====
+ * VidEplace Design System
+ * - 넉넉한 내부 여백
+ * - 큰 border-radius (20~24px for panels)
+ * - 부드러운 전환 (250ms ease)
+ * - 여유로운 텍스트 간격
+ */
+
+/* ========================================
+   IDE 레이아웃
+   ======================================== */
+.ide-layout {
+  @apply flex flex-col h-screen bg-bg-primary;
+}
+
+.ide-main {
+  @apply flex flex-1 overflow-hidden;
+}
+
+.ide-resize-handle-v {
+  @apply bg-border-primary cursor-col-resize;
+  width: 3px;
+  transition: background-color 150ms ease;
+}
+
+.ide-resize-handle-v:hover,
+.ide-resize-handle-v:active {
+  @apply bg-accent-primary;
+}
+
+.ide-resize-handle-h {
+  @apply bg-border-primary cursor-row-resize;
+  height: 3px;
+  transition: background-color 150ms ease;
+}
+
+.ide-resize-handle-h:hover,
+.ide-resize-handle-h:active {
+  @apply bg-accent-primary;
+}
+
+/* ========================================
+   타이틀바 (IDE용)
+   ======================================== */
+.ide-titlebar {
+  @apply flex items-center bg-bg-secondary border-b border-border-primary select-none;
+  height: 36px;
+  -webkit-app-region: drag;
+}
+
+.ide-titlebar-title {
+  @apply flex-1 flex items-center justify-center text-xs text-text-secondary font-medium;
+}
+
+.ide-titlebar-traffic-lights {
+  @apply shrink-0;
+  width: 72px;
+}
+
+.ide-titlebar-control {
+  @apply flex items-center justify-center text-text-secondary;
+  width: 44px;
+  height: 36px;
+  transition: all 0.15s ease;
+  -webkit-app-region: no-drag;
+}
+
+.ide-titlebar-control:hover {
+  @apply bg-bg-hover;
+}
+
+.ide-titlebar-control-close:hover {
+  @apply bg-accent-error text-white;
+}
+
+/* ========================================
+   Activity Bar
+   ======================================== */
+.activity-bar {
+  @apply flex flex-col items-center justify-between h-full bg-bg-primary border-r border-border-primary select-none;
+  width: 48px;
+}
+
+.activity-bar-top {
+  @apply flex flex-col items-center;
+  padding-top: 4px;
+}
+
+.activity-bar-bottom {
+  @apply flex flex-col items-center;
+  padding-bottom: 4px;
+}
+
+.activity-bar-icon {
+  @apply relative flex items-center justify-center text-text-tertiary;
+  width: 48px;
+  height: 40px;
+  transition: color 0.15s ease;
+}
+
+.activity-bar-icon:hover {
+  @apply text-text-secondary;
+}
+
+.activity-bar-icon-active {
+  @apply relative flex items-center justify-center text-white;
+  width: 48px;
+  height: 40px;
+  transition: color 0.15s ease;
+}
+
+.activity-bar-icon-indicator {
+  @apply absolute bg-accent-primary;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  border-radius: 0 2px 2px 0;
+}
+
+/* ========================================
+   Sidebar
+   ======================================== */
+.sidebar {
+  @apply flex flex-col h-full bg-bg-secondary border-r border-border-primary select-none;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.sidebar-header {
+  @apply flex items-center justify-between shrink-0 border-b border-border-primary;
+  height: 36px;
+  padding: 0 12px;
+}
+
+.sidebar-header-title {
+  @apply font-semibold text-text-secondary uppercase tracking-wider;
+  font-size: 11px;
+}
+
+.sidebar-header-btn {
+  @apply flex items-center justify-center rounded text-text-tertiary;
+  width: 22px;
+  height: 22px;
+  transition: all 0.15s ease;
+}
+
+.sidebar-header-btn:hover {
+  @apply text-text-secondary bg-bg-hover;
+}
+
+.sidebar-panel {
+  @apply flex-1 overflow-y-auto overflow-x-hidden;
+}
+
+.sidebar-placeholder {
+  @apply flex flex-col items-center justify-center h-full text-center;
+  padding: 0 16px;
+}
+
+.sidebar-placeholder-title {
+  @apply text-text-secondary text-sm font-medium;
+  margin-bottom: 4px;
+}
+
+.sidebar-placeholder-desc {
+  @apply text-text-tertiary text-xs;
+}
+
+/* ========================================
+   File Explorer
+   ======================================== */
+.file-tree {
+  padding: 4px 0;
+}
+
+.file-tree-item {
+  @apply flex items-center w-full text-left text-text-secondary leading-none;
+  height: 28px;
+  font-size: 13px;
+  transition: background-color 75ms ease;
+}
+
+.file-tree-item:hover {
+  @apply bg-bg-hover;
+}
+
+.file-tree-item-selected {
+  @apply flex items-center w-full text-left text-text-primary leading-none bg-bg-active;
+  height: 28px;
+  font-size: 13px;
+  transition: background-color 75ms ease;
+}
+
+.file-tree-chevron {
+  @apply flex items-center justify-center shrink-0 text-text-tertiary;
+  width: 16px;
+  height: 16px;
+  margin-right: 2px;
+}
+
+.file-tree-spacer {
+  @apply shrink-0;
+  width: 16px;
+  height: 16px;
+  margin-right: 2px;
+}
+
+.file-tree-folder {
+  @apply shrink-0;
+  font-size: 11px;
+  margin-right: 6px;
+}
+
+.file-tree-file {
+  @apply shrink-0 font-mono font-bold;
+  font-size: 10px;
+  margin-right: 6px;
+}
+
+.file-tree-name {
+  @apply truncate;
+}
+
+/* ========================================
+   Editor Panel — Redesigned
+   ======================================== */
+.editor-panel {
+  @apply flex flex-col h-full bg-bg-tertiary relative;
+}
+
+.editor-tab-bar {
+  @apply flex items-center bg-bg-secondary border-b border-border-primary overflow-x-auto;
+  min-height: 40px;
+}
+
+.editor-tab {
+  @apply flex items-center shrink-0 bg-bg-secondary text-text-secondary;
+  gap: 8px;
+  padding: 0 16px;
+  height: 40px;
+  font-size: 13px;
+  border-radius: 10px 10px 0 0;
+  margin-top: 2px;
+  transition: all 0.15s ease;
+}
+
+.editor-tab:hover {
+  @apply bg-bg-hover text-text-primary;
+}
+
+.editor-tab-active {
+  @apply flex items-center shrink-0 bg-bg-tertiary text-text-primary;
+  gap: 8px;
+  padding: 0 16px;
+  height: 40px;
+  font-size: 13px;
+  border-radius: 10px 10px 0 0;
+  margin-top: 2px;
+  border-top: 2px solid var(--color-accent-primary);
+  position: relative;
+}
+
+.editor-tab-active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--color-bg-tertiary);
+}
+
+.editor-tab-label {
+  @apply truncate;
+  max-width: 140px;
+}
+
+.editor-tab-modified {
+  @apply rounded-full bg-accent-warning shrink-0;
+  width: 8px;
+  height: 8px;
+}
+
+.editor-tab-close {
+  @apply rounded shrink-0;
+  opacity: 0;
+  margin-left: 2px;
+  padding: 2px;
+  transition: all 0.1s ease;
+}
+
+.editor-tab:hover .editor-tab-close,
+.editor-tab-active .editor-tab-close {
+  opacity: 0.6;
+}
+
+.editor-tab:hover .editor-tab-close:hover,
+.editor-tab-active .editor-tab-close:hover {
+  @apply bg-bg-hover;
+  opacity: 1;
+}
+
+.editor-tab-actions {
+  @apply flex-1;
+}
+
+.editor-tab-more {
+  @apply flex items-center justify-center text-text-tertiary shrink-0;
+  width: 36px;
+  height: 40px;
+  transition: all 0.15s ease;
+}
+
+.editor-tab-more:hover {
+  @apply bg-bg-hover text-text-secondary;
+}
+
+/* Breadcrumb */
+.editor-breadcrumb {
+  @apply flex items-center bg-bg-tertiary border-b border-border-primary;
+  gap: 2px;
+  padding: 6px 16px;
+  font-size: 13px;
+}
+
+.editor-breadcrumb-segment {
+  @apply text-text-tertiary;
+  padding: 2px 6px;
+  border-radius: 6px;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.editor-breadcrumb-segment:hover {
+  @apply bg-bg-hover text-text-secondary;
+}
+
+.editor-breadcrumb-current {
+  @apply text-text-secondary font-medium;
+}
+
+.editor-breadcrumb-sep {
+  @apply text-text-tertiary shrink-0;
+  opacity: 0.5;
+}
+
+/* Mini action bar */
+.editor-minibar {
+  @apply absolute flex items-center bg-bg-secondary border border-border-primary;
+  top: 88px;
+  right: 16px;
+  gap: 2px;
+  padding: 4px;
+  border-radius: 10px;
+  z-index: 10;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.editor-minibar-btn {
+  @apply flex items-center justify-center text-text-tertiary;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  transition: all 0.15s ease;
+}
+
+.editor-minibar-btn:hover {
+  @apply bg-bg-hover text-text-primary;
+}
+
+/* Editor content */
+.editor-content {
+  @apply flex-1 overflow-auto;
+}
+
+.editor-line-numbers {
+  @apply flex flex-col items-end text-text-tertiary text-xs font-mono select-none bg-bg-tertiary border-r border-border-primary;
+  padding: 12px 14px;
+  min-width: 52px;
+}
+
+.editor-line-number {
+  line-height: 24px;
+  transition: color 0.1s ease;
+}
+
+.editor-line-number-active {
+  @apply text-text-secondary font-semibold;
+}
+
+.editor-code {
+  @apply flex-1 text-xs font-mono overflow-x-auto;
+  padding: 12px 8px;
+  line-height: 24px;
+}
+
+.editor-code-line {
+  padding: 0 12px;
+  border-radius: 4px;
+  transition: background-color 0.1s ease;
+}
+
+.editor-code-line:hover {
+  @apply bg-bg-hover/30;
+}
+
+.editor-code-line-active {
+  background: rgba(88, 166, 255, 0.06);
+  border-left: 2px solid var(--color-accent-primary);
+  padding-left: 10px;
+}
+
+/* Syntax highlighting tokens */
+.syn-keyword {
+  @apply text-accent-purple font-medium;
+}
+
+.syn-string {
+  @apply text-accent-success;
+}
+
+.syn-tag {
+  @apply text-accent-error;
+}
+
+.syn-number {
+  @apply text-accent-warning;
+}
+
+.syn-comment {
+  @apply text-text-tertiary italic;
+}
+
+.syn-attr {
+  @apply text-accent-info;
+}
+
+.syn-builtin {
+  color: #d2a8ff;
+}
+
+.syn-component {
+  color: #79c0ff;
+}
+
+/* Welcome overlay */
+.editor-welcome {
+  @apply flex-1 flex flex-col items-center justify-center text-center;
+  padding: 48px 32px;
+}
+
+.editor-welcome-icon {
+  @apply flex items-center justify-center text-text-tertiary;
+  width: 96px;
+  height: 96px;
+  border-radius: 28px;
+  background: rgba(88, 166, 255, 0.08);
+  margin-bottom: 24px;
+}
+
+.editor-welcome-title {
+  @apply text-text-primary font-bold;
+  font-size: 20px;
+  margin-bottom: 8px;
+}
+
+.editor-welcome-desc {
+  @apply text-text-tertiary;
+  font-size: 14px;
+  line-height: 1.6;
+  max-width: 320px;
+}
+
+/* Status bar — redesigned */
+.editor-status-bar {
+  @apply flex items-center justify-between bg-bg-secondary;
+  padding: 0 8px;
+  height: 26px;
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  border-radius: 0 0 8px 8px;
+}
+
+.editor-status-bar-group {
+  @apply flex items-center;
+  gap: 0;
+}
+
+.editor-status-bar-item {
+  @apply text-text-tertiary;
+  padding: 2px 10px;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  font-size: 11px;
+}
+
+.editor-status-bar-item:hover {
+  @apply bg-bg-hover text-text-secondary;
+}
+
+.editor-status-bar-item-accent {
+  @apply text-accent-primary;
+}
+
+.editor-status-bar-divider {
+  @apply bg-border-primary;
+  width: 1px;
+  height: 12px;
+}
+
+/* ========================================
+   Chat Panel
+   ======================================== */
+.chat-panel {
+  @apply flex flex-col h-full bg-bg-secondary border-l border-border-primary;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.chat-header {
+  @apply flex items-center justify-between shrink-0 border-b border-border-primary;
+  padding: 10px 16px;
+}
+
+.chat-header-title {
+  @apply flex items-center;
+  gap: 8px;
+}
+
+.chat-header-actions {
+  @apply flex items-center;
+  gap: 6px;
+}
+
+.chat-model-selector {
+  @apply relative flex items-center font-medium text-text-secondary bg-bg-elevated;
+  gap: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+  border-radius: 6px;
+  transition: color 0.15s ease;
+  cursor: pointer;
+}
+
+.chat-model-selector:hover {
+  @apply text-text-primary;
+}
+
+.chat-model-dropdown {
+  @apply absolute bg-bg-elevated border border-border-primary shadow-lg;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  width: 176px;
+  padding: 4px 0;
+  border-radius: 6px;
+  z-index: 50;
+}
+
+.chat-model-option {
+  @apply text-xs text-text-primary cursor-pointer;
+  padding: 6px 12px;
+  transition: background-color 0.1s ease;
+}
+
+.chat-model-option:hover {
+  @apply bg-bg-hover;
+}
+
+.chat-messages {
+  @apply flex-1 overflow-y-auto;
+  padding: 20px 16px;
+}
+
+.chat-messages > * + * {
+  margin-top: 20px;
+}
+
+.chat-message-user {
+  @apply flex flex-col items-end;
+  gap: 4px;
+}
+
+.chat-message-user-meta {
+  @apply flex items-center;
+  gap: 6px;
+  margin-right: 4px;
+}
+
+.chat-message-user-meta span {
+  @apply text-text-tertiary;
+  font-size: 10px;
+}
+
+.chat-message-user-bubble {
+  @apply text-sm text-text-primary leading-relaxed;
+  max-width: 85%;
+  padding: 12px 16px;
+  border-radius: 16px;
+  border-top-right-radius: 4px;
+  background: rgba(88, 166, 255, 0.2);
+}
+
+.chat-message-ai {
+  @apply flex items-start;
+  gap: 8px;
+}
+
+.chat-message-ai-avatar {
+  @apply shrink-0 flex items-center justify-center rounded-full;
+  margin-top: 2px;
+  width: 28px;
+  height: 28px;
+  background: rgba(88, 166, 255, 0.2);
+}
+
+.chat-message-ai-body {
+  @apply flex-1 min-w-0;
+}
+
+.chat-message-ai-meta {
+  @apply text-text-tertiary;
+  font-size: 10px;
+  margin-left: 4px;
+}
+
+.chat-message-ai-bubble {
+  @apply text-sm text-text-primary leading-relaxed bg-bg-elevated;
+  margin-top: 4px;
+  padding: 12px 16px;
+  border-radius: 16px;
+  border-top-left-radius: 4px;
+}
+
+.chat-code-block {
+  @apply relative overflow-hidden bg-bg-primary border border-border-primary;
+  margin: 8px 0;
+  border-radius: 12px;
+}
+
+.chat-code-block-header {
+  @apply flex items-center justify-between border-b border-border-primary;
+  padding: 6px 12px;
+}
+
+.chat-code-block-lang {
+  @apply text-xs text-text-tertiary font-mono;
+}
+
+.chat-code-block-copy {
+  @apply flex items-center text-xs text-text-secondary cursor-pointer;
+  gap: 4px;
+  transition: color 0.15s ease;
+}
+
+.chat-code-block-copy:hover {
+  @apply text-text-primary;
+}
+
+.chat-code-block-content {
+  @apply text-xs font-mono text-text-primary overflow-x-auto leading-relaxed whitespace-pre;
+  padding: 10px 12px;
+}
+
+.chat-action-btn {
+  @apply text-xs font-semibold text-white cursor-pointer;
+  padding: 7px 14px;
+  border-radius: 10px;
+  background: var(--color-accent-primary);
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.chat-action-btn:hover {
+  filter: brightness(1.1);
+}
+
+.chat-action-btn-ghost {
+  @apply text-xs font-semibold text-text-primary bg-bg-hover cursor-pointer;
+  padding: 7px 14px;
+  border-radius: 10px;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.chat-action-btn-ghost:hover {
+  filter: brightness(1.1);
+}
+
+.chat-input-area {
+  @apply shrink-0 border-t border-border-primary;
+  padding: 12px;
+}
+
+.chat-input-area > * + * {
+  margin-top: 8px;
+}
+
+.chat-input-row {
+  @apply relative flex items-end;
+  gap: 8px;
+}
+
+.chat-textarea {
+  @apply w-full resize-none bg-bg-tertiary border border-border-primary text-sm text-text-primary;
+  padding: 10px 12px;
+  padding-right: 40px;
+  border-radius: 12px;
+  transition: border-color 0.15s ease;
+}
+
+.chat-textarea::placeholder {
+  @apply text-text-tertiary;
+}
+
+.chat-textarea:focus {
+  @apply outline-none;
+  border-color: rgba(88, 166, 255, 0.6);
+  box-shadow: 0 0 0 1px rgba(88, 166, 255, 0.3);
+}
+
+.chat-send-btn {
+  @apply shrink-0 flex items-center justify-center bg-accent-primary text-white cursor-pointer;
+  height: 36px;
+  width: 36px;
+  border-radius: 12px;
+  transition: all 0.15s ease;
+}
+
+.chat-send-btn:hover {
+  filter: brightness(1.1);
+}
+
+.chat-input-footer {
+  @apply flex items-center justify-between;
+}
+
+.chat-input-tools {
+  @apply flex items-center;
+  gap: 4px;
+}
+
+.chat-input-context-btn {
+  @apply inline-flex items-center justify-center rounded-md text-text-secondary text-sm font-bold cursor-pointer;
+  height: 28px;
+  width: 28px;
+  transition: all 0.15s ease;
+}
+
+.chat-input-context-btn:hover {
+  @apply bg-bg-hover text-text-primary;
+}
+
+.chat-token-info {
+  @apply text-text-tertiary;
+  font-size: 11px;
+}
+
+/* ========================================
+   Preview Panel
+   ======================================== */
+.preview-panel {
+  @apply flex flex-col h-full bg-bg-secondary border-l border-border-primary;
+}
+
+.preview-header {
+  @apply flex items-center shrink-0 border-b border-border-primary;
+  gap: 8px;
+  padding: 8px 12px;
+}
+
+.preview-header-title {
+  @apply text-sm font-semibold text-text-primary shrink-0;
+}
+
+.preview-toolbar {
+  @apply flex-1 flex items-center font-mono text-xs text-text-secondary select-all bg-bg-tertiary border border-border-primary;
+  margin: 0 8px;
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 6px;
+}
+
+.preview-toolbar-divider {
+  @apply bg-border-primary;
+  height: 16px;
+  width: 1px;
+}
+
+.preview-content {
+  @apply flex-1 overflow-auto bg-bg-tertiary flex justify-center;
+}
+
+.preview-viewport {
+  @apply h-full bg-white;
+  transition: width 0.3s ease;
+}
+
+.preview-viewport-framed {
+  @apply shadow-xl border-x border-gray-700;
+}
+
+.preview-status-bar {
+  @apply flex items-center justify-between shrink-0 border-t border-border-primary bg-bg-primary text-text-tertiary;
+  padding: 6px 16px;
+  font-size: 11px;
+}
+
+/* ========================================
+   Debug Panel
+   ======================================== */
+.debug-panel {
+  @apply flex flex-col h-full bg-bg-secondary;
+  border-top: 1px solid var(--color-border-primary);
+}
+
+.debug-tab-bar {
+  @apply flex items-center bg-bg-secondary border-b border-border-primary;
+  min-height: 40px;
+  padding: 0 8px;
+  gap: 2px;
+}
+
+.debug-content {
+  @apply flex-1 overflow-hidden flex flex-col;
+}
+
+/* Console tab */
+.debug-console {
+  @apply flex-1 overflow-auto font-mono;
+  padding: 16px 20px;
+  font-size: 13px;
+}
+
+.debug-console > * + * {
+  margin-top: 8px;
+}
+
+.debug-log-entry {
+  @apply flex items-start;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  transition: background-color 0.15s ease;
+}
+
+.debug-log-entry:hover {
+  @apply bg-bg-hover;
+}
+
+.debug-log-time {
+  @apply text-text-tertiary shrink-0 font-mono;
+  font-size: 12px;
+  padding-top: 1px;
+}
+
+.debug-log-badge {
+  @apply shrink-0 font-bold uppercase;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 10px;
+  letter-spacing: 0.5px;
+}
+
+.debug-log-info {
+  @apply bg-accent-success/15 text-accent-success;
+}
+
+.debug-log-warn {
+  @apply bg-accent-warning/15 text-accent-warning;
+}
+
+.debug-log-error {
+  @apply bg-accent-error/15 text-accent-error;
+}
+
+.debug-log-message-info {
+  @apply text-accent-success break-all;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.debug-log-message-warn {
+  @apply text-accent-warning break-all;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.debug-log-message-error {
+  @apply text-accent-error break-all;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.debug-log-stack {
+  @apply text-text-tertiary;
+  white-space: pre-wrap;
+  word-break: break-all;
+  margin-left: 0;
+  margin-top: 6px;
+  margin-bottom: 8px;
+  font-size: 12px;
+  line-height: 1.7;
+  padding: 10px 14px;
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 8px;
+}
+
+.debug-ai-fix-btn {
+  @apply font-semibold text-accent-primary cursor-pointer;
+  margin-top: 8px;
+  padding: 6px 14px;
+  font-size: 12px;
+  border-radius: 10px;
+  background: rgba(88, 166, 255, 0.12);
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.debug-ai-fix-btn:hover {
+  background: rgba(88, 166, 255, 0.25);
+}
+
+.debug-ai-fix-btn-error {
+  @apply font-medium text-accent-error cursor-pointer;
+  padding: 4px 10px;
+  font-size: 11px;
+  border-radius: 8px;
+  background: rgba(248, 81, 73, 0.15);
+  transition: background-color 0.15s ease;
+  white-space: nowrap;
+}
+
+.debug-ai-fix-btn-error:hover {
+  background: rgba(248, 81, 73, 0.25);
+}
+
+/* Network tab */
+.debug-network {
+  @apply flex-1 overflow-auto;
+}
+
+.debug-network-header {
+  @apply grid font-semibold uppercase text-text-tertiary border-b border-border-primary sticky top-0 bg-bg-secondary;
+  grid-template-columns: 70px 1fr 60px 80px 80px;
+  gap: 12px;
+  padding: 12px 20px;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+}
+
+.debug-network-row {
+  @apply grid font-mono;
+  grid-template-columns: 70px 1fr 60px 80px 80px;
+  gap: 12px;
+  padding: 10px 20px;
+  font-size: 13px;
+  transition: background-color 0.15s ease;
+}
+
+.debug-network-row:hover {
+  @apply bg-bg-hover;
+}
+
+.debug-network-row-error {
+  background: rgba(248, 81, 73, 0.06);
+}
+
+.debug-network-error-actions {
+  padding: 4px 20px 12px;
+}
+
+/* Problems tab */
+.debug-problems {
+  @apply flex-1 overflow-auto;
+  padding: 16px 20px;
+  font-size: 13px;
+}
+
+.debug-problems > * + * {
+  margin-top: 8px;
+}
+
+.debug-problem-item {
+  @apply flex items-start;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  transition: background-color 0.15s ease;
+  font-size: 13px;
+}
+
+.debug-problem-item:hover {
+  @apply bg-bg-hover;
+}
+
+.debug-problem-summary {
+  @apply text-text-tertiary;
+  padding: 10px 14px;
+  margin-top: 8px;
+  font-size: 13px;
+}
+
+/* Terminal tab */
+.debug-terminal {
+  @apply flex-1 overflow-auto bg-bg-primary font-mono text-text-primary;
+  padding: 20px;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.debug-terminal-line {
+  min-height: 24px;
+}
+
+.debug-terminal-cursor {
+  @apply inline-block bg-text-primary animate-pulse;
+  width: 8px;
+  height: 16px;
+  margin-left: 2px;
+  vertical-align: text-bottom;
+}
+
+/* ========================================
+   Git Panel
+   ======================================== */
+.git-panel {
+  @apply flex flex-col h-full;
+}
+
+.git-branch-bar {
+  @apply flex items-center border-b border-border-primary;
+  gap: 8px;
+  padding: 8px 12px;
+}
+
+.git-branch-name {
+  @apply text-text-primary font-medium;
+  font-size: 13px;
+}
+
+.git-changes-header {
+  @apply flex items-center justify-between;
+  padding: 8px 12px;
+}
+
+.git-changes-title {
+  @apply font-semibold text-text-secondary uppercase tracking-wider;
+  font-size: 11px;
+}
+
+.git-change-item {
+  @apply flex items-center justify-between rounded cursor-pointer;
+  padding: 5px 10px;
+  margin: 0 4px;
+  gap: 8px;
+  min-width: 0;
+  transition: background-color 0.1s ease;
+}
+
+.git-change-item:hover {
+  @apply bg-bg-hover;
+}
+
+.git-change-path {
+  @apply text-text-secondary truncate;
+  font-size: 12px;
+  min-width: 0;
+}
+
+.git-change-status {
+  @apply font-mono font-bold shrink-0;
+  font-size: 11px;
+  margin-left: 8px;
+}
+
+.git-commit-section {
+  @apply flex flex-col mt-auto border-t border-border-primary;
+  gap: 8px;
+  padding: 12px;
+}
+
+.git-commit-input {
+  @apply w-full bg-bg-tertiary border border-border-primary text-text-primary resize-none;
+  height: 60px;
+  padding: 6px 8px;
+  font-size: 13px;
+  border-radius: 8px;
+  transition: border-color 0.15s ease;
+}
+
+.git-commit-input::placeholder {
+  @apply text-text-tertiary;
+}
+
+.git-commit-input:focus {
+  @apply outline-none border-accent-primary;
+}
+
+.git-ai-commit-btn {
+  @apply flex items-center justify-center w-full text-text-secondary border border-border-primary rounded;
+  gap: 6px;
+  height: 28px;
+  font-size: 12px;
+  transition: all 0.15s ease;
+}
+
+.git-ai-commit-btn:hover {
+  @apply text-text-primary bg-bg-hover;
+}
+
+.git-commit-actions {
+  @apply flex;
+  gap: 8px;
+}
+
+.git-commit-btn {
+  @apply flex-1 font-medium bg-accent-primary text-white rounded;
+  height: 30px;
+  font-size: 13px;
+  transition: opacity 0.15s ease;
+}
+
+.git-commit-btn:hover {
+  opacity: 0.9;
+}
+
+.git-commit-push-btn {
+  @apply flex-1 font-medium bg-bg-tertiary text-text-primary border border-border-primary rounded;
+  height: 30px;
+  font-size: 13px;
+  transition: all 0.15s ease;
+}
+
+.git-commit-push-btn:hover {
+  @apply bg-bg-hover;
+}
+
+.git-sync-status {
+  @apply flex items-center justify-center text-text-tertiary;
+  gap: 12px;
+  padding: 8px 0;
+  font-size: 12px;
+}
+
+.git-sync-item {
+  @apply flex items-center;
+  gap: 4px;
+}
+
+/* ========================================
+   Accounts Panel
+   ======================================== */
+.accounts-panel {
+  @apply flex flex-col;
+  padding: 8px 0;
+}
+
+.accounts-section {
+  margin-bottom: 16px;
+}
+
+.accounts-section-title {
+  @apply font-semibold text-text-tertiary uppercase tracking-wider;
+  font-size: 11px;
+  padding: 0 12px 4px;
+}
+
+.accounts-service-item {
+  @apply flex items-center justify-between;
+  padding: 6px 12px;
+  transition: background-color 0.15s ease;
+}
+
+.accounts-service-item:hover {
+  @apply bg-bg-hover;
+}
+
+.accounts-service-info {
+  @apply flex items-center;
+  gap: 8px;
+}
+
+.accounts-service-icon {
+  @apply leading-none;
+  font-size: 14px;
+}
+
+.accounts-service-name {
+  @apply text-text-primary;
+  font-size: 13px;
+}
+
+.accounts-connected-badge {
+  @apply flex items-center text-accent-success;
+  gap: 6px;
+  font-size: 11px;
+}
+
+.accounts-connected-dot {
+  @apply rounded-full bg-accent-success;
+  width: 6px;
+  height: 6px;
+}
+
+.accounts-connect-btn {
+  @apply text-accent-primary;
+  font-size: 11px;
+  transition: all 0.15s ease;
+}
+
+.accounts-connect-btn:hover {
+  text-decoration: underline;
+}
+
+/* ========================================
+   Development Environment Panel
+   ======================================== */
+.devenv-panel {
+  @apply flex flex-col overflow-y-auto overflow-x-hidden;
+  padding: 8px 0 16px;
+}
+
+.devenv-section {
+  margin-bottom: 8px;
+}
+
+.devenv-section-header {
+  @apply flex items-center sticky top-0 bg-bg-secondary;
+  gap: 8px;
+  padding: 8px 12px 6px;
+  z-index: 1;
+}
+
+.devenv-section-title {
+  @apply font-semibold text-text-tertiary uppercase tracking-wider;
+  font-size: 11px;
+}
+
+.devenv-section-count {
+  @apply text-text-tertiary font-mono;
+  font-size: 10px;
+  margin-left: auto;
+}
+
+.devenv-section-items {
+  @apply flex flex-col;
+  gap: 4px;
+  padding: 0 8px;
+}
+
+.devenv-item {
+  @apply flex items-center justify-between bg-bg-tertiary border border-border-primary;
+  padding: 10px 14px;
+  border-radius: 14px;
+  transition: all 0.25s ease;
+}
+
+.devenv-item:hover {
+  @apply bg-bg-hover;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.devenv-item-installed {
+  border-left: 3px solid var(--color-accent-success);
+}
+
+.devenv-item-missing {
+  opacity: 0.65;
+}
+
+.devenv-item-missing:hover {
+  opacity: 1;
+}
+
+.devenv-item-left {
+  @apply flex items-center min-w-0;
+  gap: 10px;
+}
+
+.devenv-item-right {
+  @apply flex items-center shrink-0;
+  gap: 8px;
+}
+
+.devenv-item-name {
+  @apply text-text-primary font-medium truncate;
+  font-size: 12px;
+}
+
+.devenv-status-dot {
+  @apply shrink-0 rounded-full;
+  width: 7px;
+  height: 7px;
+  background: var(--color-text-tertiary);
+  opacity: 0.4;
+}
+
+.devenv-status-dot-active {
+  background: var(--color-accent-success);
+  opacity: 1;
+  box-shadow: 0 0 6px rgba(63, 185, 80, 0.4);
+}
+
+.devenv-version {
+  @apply text-text-secondary font-mono;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.devenv-version-missing {
+  @apply text-text-tertiary;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.devenv-install-btn {
+  @apply flex items-center text-text-secondary bg-bg-elevated font-medium;
+  gap: 4px;
+  padding: 4px 10px;
+  font-size: 11px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.devenv-install-btn:hover {
+  @apply bg-accent-primary text-white;
+}
+
+.devenv-update-btn {
+  @apply flex items-center text-accent-primary font-medium;
+  gap: 4px;
+  padding: 4px 10px;
+  font-size: 11px;
+  border-radius: 8px;
+  background: rgba(88, 166, 255, 0.12);
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.devenv-update-btn:hover {
+  background: rgba(88, 166, 255, 0.25);
+}
+
+/* ========================================
+   Security Panel (Sidebar)
+   ======================================== */
+.security-panel {
+  @apply flex flex-col h-full overflow-y-auto;
+  padding: 12px;
+}
+
+.security-panel-actions {
+  @apply flex items-center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.security-scan-btn {
+  @apply flex-1 flex items-center justify-center font-medium text-white bg-accent-primary;
+  gap: 8px;
+  height: 36px;
+  font-size: 13px;
+  border-radius: 12px;
+  transition: all 0.2s ease;
+}
+
+.security-scan-btn:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+.security-scan-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.security-rescan-btn {
+  @apply flex items-center justify-center text-text-secondary bg-bg-tertiary border border-border-primary;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  transition: all 0.2s ease;
+}
+
+.security-rescan-btn:hover:not(:disabled) {
+  @apply text-text-primary bg-bg-hover;
+}
+
+.security-error {
+  @apply flex items-center text-accent-error;
+  gap: 8px;
+  padding: 10px 14px;
+  font-size: 12px;
+  border-radius: 12px;
+  background: rgba(248, 81, 73, 0.1);
+  margin-bottom: 12px;
+}
+
+.security-loading {
+  @apply flex flex-col items-center justify-center text-text-tertiary;
+  gap: 12px;
+  padding: 48px 16px;
+  font-size: 13px;
+}
+
+.security-score-card {
+  @apply flex flex-col items-center bg-bg-tertiary border border-border-primary;
+  padding: 24px 16px;
+  border-radius: 20px;
+  margin-bottom: 12px;
+}
+
+.security-score {
+  @apply font-bold;
+  font-size: 48px;
+  line-height: 1;
+  margin-bottom: 8px;
+}
+
+.security-score-good {
+  @apply text-accent-success;
+}
+
+.security-score-warn {
+  @apply text-accent-warning;
+}
+
+.security-score-bad {
+  @apply text-accent-error;
+}
+
+.security-score-label {
+  @apply text-text-secondary font-medium;
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+
+.security-score-meta {
+  @apply text-text-tertiary;
+  font-size: 11px;
+}
+
+.security-issues {
+  @apply flex flex-col;
+  gap: 8px;
+}
+
+.security-issue-group {
+  @apply bg-bg-tertiary border border-border-primary;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.security-issue-group-header {
+  @apply flex items-center justify-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--color-border-primary);
+}
+
+.security-issue-severity {
+  @apply flex items-center font-semibold uppercase;
+  gap: 6px;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+}
+
+.security-severity-high {
+  @apply text-accent-error;
+}
+
+.security-severity-medium {
+  @apply text-accent-warning;
+}
+
+.security-severity-low {
+  @apply text-accent-info;
+}
+
+.security-issue-count {
+  @apply text-text-tertiary font-mono;
+  font-size: 11px;
+}
+
+.security-issue-item {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--color-border-secondary);
+  transition: background-color 0.15s ease;
+}
+
+.security-issue-item:last-child {
+  border-bottom: none;
+}
+
+.security-issue-item:hover {
+  @apply bg-bg-hover;
+}
+
+.security-issue-type {
+  @apply text-text-secondary font-mono font-medium;
+  font-size: 11px;
+  margin-bottom: 2px;
+}
+
+.security-issue-message {
+  @apply text-text-primary;
+  font-size: 12px;
+  line-height: 1.5;
+  margin-bottom: 4px;
+}
+
+.security-issue-location {
+  @apply text-accent-primary font-mono cursor-pointer;
+  font-size: 11px;
+  transition: color 0.15s ease;
+}
+
+.security-issue-location:hover {
+  text-decoration: underline;
+}
+
+.security-empty {
+  @apply flex flex-col items-center justify-center text-center text-text-tertiary;
+  gap: 12px;
+  padding: 48px 16px;
+  font-size: 13px;
+}
+
+/* ========================================
+   Deploy Panel (Sidebar)
+   ======================================== */
+.deploy-panel {
+  @apply flex flex-col h-full overflow-y-auto;
+  padding: 12px;
+}
+
+.deploy-token-section {
+  @apply bg-bg-tertiary border border-border-primary;
+  padding: 14px;
+  border-radius: 16px;
+  margin-bottom: 12px;
+}
+
+.deploy-token-header {
+  @apply flex items-center text-text-secondary font-medium;
+  gap: 6px;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+.deploy-token-input-row {
+  @apply flex;
+  gap: 8px;
+}
+
+.deploy-token-input {
+  @apply flex-1 bg-bg-primary border border-border-primary text-text-primary;
+  padding: 6px 10px;
+  font-size: 12px;
+  border-radius: 8px;
+  transition: border-color 0.15s ease;
+}
+
+.deploy-token-input:focus {
+  @apply outline-none border-accent-primary;
+}
+
+.deploy-token-save-btn {
+  @apply font-medium text-white bg-accent-primary shrink-0;
+  padding: 6px 14px;
+  font-size: 12px;
+  border-radius: 8px;
+  transition: all 0.15s ease;
+}
+
+.deploy-token-save-btn:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+.deploy-token-save-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.deploy-token-hint {
+  @apply text-text-tertiary;
+  font-size: 11px;
+  margin-top: 8px;
+}
+
+.deploy-options {
+  margin-bottom: 12px;
+}
+
+.deploy-option-row {
+  @apply flex items-center cursor-pointer;
+  gap: 8px;
+  padding: 8px 0;
+}
+
+.deploy-option-label {
+  @apply text-text-secondary;
+  font-size: 13px;
+}
+
+.deploy-action {
+  margin-bottom: 12px;
+}
+
+.deploy-btn {
+  @apply flex items-center justify-center w-full font-medium text-white;
+  gap: 8px;
+  height: 40px;
+  font-size: 14px;
+  border-radius: 14px;
+  background: var(--color-accent-primary);
+  transition: all 0.2s ease;
+}
+
+.deploy-btn:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+.deploy-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.deploy-status {
+  @apply flex items-center font-medium;
+  gap: 8px;
+  padding: 10px 14px;
+  font-size: 13px;
+  border-radius: 12px;
+  margin-bottom: 12px;
+}
+
+.deploy-status-deploying {
+  @apply text-accent-primary;
+  background: rgba(88, 166, 255, 0.1);
+}
+
+.deploy-status-success {
+  @apply text-accent-success;
+  background: rgba(63, 185, 80, 0.1);
+}
+
+.deploy-status-error {
+  @apply text-accent-error;
+  background: rgba(248, 81, 73, 0.1);
+}
+
+.deploy-url {
+  margin-bottom: 12px;
+}
+
+.deploy-url-link {
+  @apply flex items-center text-accent-primary font-mono;
+  gap: 6px;
+  padding: 10px 14px;
+  font-size: 12px;
+  border-radius: 12px;
+  background: rgba(88, 166, 255, 0.08);
+  transition: background-color 0.15s ease;
+  word-break: break-all;
+}
+
+.deploy-url-link:hover {
+  background: rgba(88, 166, 255, 0.15);
+}
+
+.deploy-log-section {
+  margin-bottom: 12px;
+}
+
+.deploy-log-header {
+  @apply text-text-tertiary font-semibold uppercase tracking-wider;
+  font-size: 11px;
+  padding: 0 4px 6px;
+}
+
+.deploy-log {
+  @apply bg-bg-primary border border-border-primary font-mono text-text-secondary overflow-y-auto;
+  padding: 12px;
+  font-size: 11px;
+  line-height: 1.7;
+  border-radius: 12px;
+  max-height: 240px;
+}
+
+.deploy-log-line {
+  @apply text-text-secondary;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.deploy-error {
+  @apply flex items-center text-accent-error;
+  gap: 8px;
+  padding: 10px 14px;
+  font-size: 12px;
+  border-radius: 12px;
+  background: rgba(248, 81, 73, 0.1);
+}
+
+/* ========================================
+   Cost Bar (Settings)
+   ======================================== */
+.cost-bar-track {
+  @apply bg-bg-tertiary border border-border-primary;
+  height: 12px;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.cost-bar-fill {
+  height: 100%;
+  border-radius: 6px;
+  transition: width 0.5s ease;
+}
+
+/* ========================================
+   Team Role Badge (Settings)
+   ======================================== */
+.team-role-badge {
+  @apply font-medium shrink-0;
+  padding: 3px 10px;
+  font-size: 11px;
+  border-radius: 8px;
+}
+
+.team-role-owner {
+  @apply text-accent-warning;
+  background: rgba(210, 153, 34, 0.15);
+}
+
+.team-role-admin {
+  @apply text-accent-purple;
+  background: rgba(188, 140, 255, 0.15);
+}
+
+.team-role-member {
+  @apply text-text-secondary;
+  background: var(--color-bg-elevated);
+}
+
+.team-remove-btn {
+  @apply flex items-center justify-center text-text-tertiary;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  transition: all 0.15s ease;
+}
+
+.team-remove-btn:hover {
+  @apply text-accent-error bg-bg-hover;
+}

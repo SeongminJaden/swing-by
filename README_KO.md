@@ -4,11 +4,49 @@
 
 [![Rust](https://img.shields.io/badge/rust-1.75%2B-orange)](https://www.rust-lang.org/)
 [![Ollama](https://img.shields.io/badge/ollama-compatible-blue)](https://ollama.ai)
+[![Electron](https://img.shields.io/badge/electron-41-47848F)](https://electronjs.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow)](LICENSE)
 [![](https://img.shields.io/badge/톡코딩에게_후원하기-☕-yellow?style=for-the-badge)](https://buymeacoffee.com/tok_coding)
 
 > 이 프로젝트가 도움이 됐다면 커피 한 잔 후원해 주세요! ☕  
 > 여러분의 후원이 프로젝트를 지속하고 새로운 기능 개발에 큰 힘이 됩니다.
+
+---
+
+## 데스크톱 IDE
+
+Swing-by는 Electron + React로 제작된 **GUI 데스크톱 IDE**를 포함합니다. Rust 에이전트와 JSON-RPC 2.0 IPC로 직접 연결됩니다.
+
+**주요 기능:**
+- **에이전트 카드** — 13개 에이전트를 파이프라인 단계별(기획→설계→개발→QA→보안→릴리즈)로 정리한 사이드바, 실시간 상태 배지
+- **에이전트 상세 오버레이** — 카드 클릭 시 우측에서 슬라이드인되는 패널 (로그, 진행률, 소요 시간, 마지막 출력)
+- **에이전트 그래프** — 에이전트 간 데이터 흐름을 보여주는 노드 기반 파이프라인 시각화, 팬/줌 지원
+- **AI 채팅** — 세 가지 모드 지원: *AI Agent (Rust)*, *Claude API*, *OpenAI GPT-4o*
+- **코드 에디터** — Monaco Editor(VS Code 엔진) + 파일 탐색기, Git 패널, 터미널, 배포 패널
+- **스프린트 러너** — 요청 입력 후 Run Sprint 클릭 시 13개 에이전트가 실시간으로 실행
+
+**[Releases 페이지](https://github.com/SeongminJaden/swing-by/releases/latest)에서 IDE 다운로드:**
+
+| 플랫폼 | 파일 |
+|--------|------|
+| Linux x86_64 | `swing-by-ide-*-x64.AppImage` |
+| macOS Apple Silicon | `swing-by-ide-*-arm64.dmg` |
+| macOS Intel | `swing-by-ide-*-x64.dmg` |
+| Windows x86_64 | `swing-by-ide-*-setup.exe` |
+
+**소스에서 직접 빌드:**
+```bash
+# 1. Rust 바이너리 먼저 빌드
+cargo build --release
+
+# 2. Node.js 의존성 설치 및 실행
+cd editor
+npm install
+npm run dev:electron       # 개발 모드
+npm run dist               # 배포 패키지 빌드
+```
+
+> **참고:** 릴리즈 패키지 빌드 시 `ai_agent` 바이너리가 자동으로 번들됩니다. 개발 모드에서는 프로젝트 루트의 `target/release/ai_agent`(또는 `target/debug/ai_agent`)를 찾습니다.
 
 ---
 
@@ -137,6 +175,7 @@ irm https://raw.githubusercontent.com/SeongminJaden/swing-by/main/install.ps1 | 
 3. AI 모델 메뉴에서 선택
 4. 사전 빌드된 바이너리 다운로드
 5. 환경 변수 자동 설정
+6. **데스크톱 IDE 설치 여부 선택** (선택사항)
 
 ### 모델 선택 메뉴
 ```

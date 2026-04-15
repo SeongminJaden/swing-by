@@ -69,8 +69,11 @@ impl PrOptions {
         }
     }
 
+    #[allow(dead_code)]
     pub fn draft(mut self) -> Self { self.draft = true; self }
+    #[allow(dead_code)]
     pub fn label(mut self, l: &str) -> Self { self.labels.push(l.to_string()); self }
+    #[allow(dead_code)]
     pub fn base(mut self, b: &str) -> Self { self.base = b.to_string(); self }
 }
 
@@ -79,6 +82,7 @@ impl PrOptions {
 #[derive(Debug)]
 pub struct PrResult {
     pub url: String,
+    #[allow(dead_code)]
     pub number: u32,
 }
 
@@ -135,6 +139,7 @@ pub fn list_prs(state: &str) -> Result<String> {
 }
 
 /// Add a comment to a PR
+#[allow(dead_code)]
 pub fn add_pr_comment(pr_number: u32, comment: &str) -> Result<()> {
     if !gh_available() {
         anyhow::bail!("gh CLI is not installed");
@@ -154,6 +159,7 @@ pub fn add_pr_comment(pr_number: u32, comment: &str) -> Result<()> {
 // ─── Auto-create sprint release PR ──────────────────────────────────────────
 
 /// Auto-generate PR body from release notes
+#[allow(dead_code)]
 pub fn build_pr_body_from_release_notes(
     sprint_id: &str,
     story_titles: &[&str],
@@ -180,6 +186,7 @@ pub fn build_pr_body_from_release_notes(
 }
 
 /// Auto-create PR after sprint completion (optional)
+#[allow(dead_code)]
 pub fn auto_create_sprint_pr(
     sprint_id: &str,
     story_titles: &[&str],

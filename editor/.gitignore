@@ -1,0 +1,6 @@
+node_modules/
+dist/
+*.xwd
+screenshot*.png
+.DS_Store
+*.log

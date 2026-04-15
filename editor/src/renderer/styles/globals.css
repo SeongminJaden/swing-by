@@ -1,0 +1,155 @@
+@import "tailwindcss";
+@import "./components.css";
+@import "./navbar.css";
+@import "./pages/login.css";
+@import "./pages/pricing.css";
+@import "./pages/onboarding.css";
+@import "./pages/dashboard.css";
+@import "./pages/ide.css";
+@import "./pages/settings.css";
+@import "./pages/workflow.css";
+@import "./pages/newservice.css";
+@import "./pages/watchdog.css";
+
+/* ===== VidEplace Design Tokens ===== */
+
+@theme {
+  /* Dark Theme (Default) */
+  --color-bg-primary: #0d1117;
+  --color-bg-secondary: #161b22;
+  --color-bg-tertiary: #1c2128;
+  --color-bg-elevated: #2d333b;
+  --color-bg-hover: #30363d;
+  --color-bg-active: #3d444d;
+
+  --color-text-primary: #e6edf3;
+  --color-text-secondary: #8b949e;
+  --color-text-tertiary: #484f58;
+  --color-text-inverse: #0d1117;
+
+  --color-accent-primary: #58a6ff;
+  --color-accent-success: #3fb950;
+  --color-accent-error: #f85149;
+  --color-accent-warning: #d29922;
+  --color-accent-info: #79c0ff;
+  --color-accent-purple: #bc8cff;
+
+  --color-border-primary: #30363d;
+  --color-border-secondary: #21262d;
+  --color-border-active: #58a6ff;
+
+  /* Spacing */
+  --spacing-panel-gap: 1px;
+
+  /* Radii */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+}
+
+/* ===== Global Styles ===== */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+
+/* 모든 버튼/뱃지 텍스트 줄바꿈 금지 */
+button,
+[role="button"] {
+  white-space: nowrap;
+}
+
+/* Electron titlebar drag region */
+.titlebar-drag {
+  -webkit-app-region: drag;
+}
+
+.titlebar-no-drag {
+  -webkit-app-region: no-drag;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-bg-elevated);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-bg-hover);
+}
+
+/* Resize handle */
+[data-resize-handle] {
+  transition: background-color 150ms ease;
+}
+
+[data-resize-handle]:hover,
+[data-resize-handle][data-resize-handle-active] {
+  background-color: var(--color-accent-primary);
+}
+
+/* ===== Theme Overrides ===== */
+
+.theme-light {
+  --color-bg-primary: #ffffff;
+  --color-bg-secondary: #f6f8fa;
+  --color-bg-tertiary: #f0f2f5;
+  --color-bg-elevated: #e8eaed;
+  --color-bg-hover: #d0d7de;
+  --color-bg-active: #c0c8d0;
+  --color-text-primary: #1f2328;
+  --color-text-secondary: #656d76;
+  --color-text-tertiary: #8b949e;
+  --color-text-inverse: #ffffff;
+  --color-accent-primary: #0969da;
+  --color-accent-success: #1a7f37;
+  --color-accent-error: #cf222e;
+  --color-accent-warning: #9a6700;
+  --color-accent-info: #0969da;
+  --color-accent-purple: #8250df;
+  --color-border-primary: #d0d7de;
+  --color-border-secondary: #e6edf3;
+  --color-border-active: #0969da;
+}
+
+.theme-monokai {
+  --color-bg-primary: #272822;
+  --color-bg-secondary: #2d2e27;
+  --color-bg-tertiary: #3e3d32;
+  --color-bg-elevated: #49483e;
+  --color-bg-hover: #524f43;
+  --color-bg-active: #5b584c;
+  --color-text-primary: #f8f8f2;
+  --color-text-secondary: #a6a18a;
+  --color-text-tertiary: #75715e;
+  --color-text-inverse: #272822;
+  --color-accent-primary: #66d9ef;
+  --color-accent-success: #a6e22e;
+  --color-accent-error: #f92672;
+  --color-accent-warning: #e6db74;
+  --color-accent-info: #66d9ef;
+  --color-accent-purple: #ae81ff;
+  --color-border-primary: #3e3d32;
+  --color-border-secondary: #2d2e27;
+  --color-border-active: #66d9ef;
+}

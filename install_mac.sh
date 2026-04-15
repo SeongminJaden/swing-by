@@ -248,6 +248,42 @@ fi
 export OLLAMA_API_URL="http://localhost:11434"
 export OLLAMA_MODEL="${MODEL:-gemma4:e4b}"
 
+# ─── Desktop IDE (optional) ───────────────────────────────────────────────────
+echo ""
+echo -e "${BOLD}── Desktop IDE (optional) ──────────────────────────${RESET}"
+echo ""
+echo -e "  Swing-by IDE is a GUI desktop app that lets you visualize"
+echo -e "  and control the multi-agent pipeline visually."
+echo ""
+ask "Install Swing-by Desktop IDE? [y/N]"
+read -r ide_answer < /dev/tty
+if [[ "${ide_answer,,}" == "y" ]]; then
+  IDE_DMG_URL="https://github.com/${REPO}/releases/latest/download/swing-by-ide-macos-${ARCH_LABEL}.dmg"
+  IDE_DMG="/tmp/swing-by-ide.dmg"
+  info "Downloading Swing-by IDE..."
+  if curl -fSL --progress-bar "$IDE_DMG_URL" -o "$IDE_DMG"; then
+    # Remove quarantine
+    xattr -d com.apple.quarantine "$IDE_DMG" 2>/dev/null || true
+    # Mount and install
+    info "Installing IDE to /Applications..."
+    MOUNT_POINT=$(hdiutil attach "$IDE_DMG" -nobrowse -quiet | awk 'END{print $NF}')
+    if [[ -n "$MOUNT_POINT" ]]; then
+      APP=$(find "$MOUNT_POINT" -maxdepth 1 -name "*.app" | head -1)
+      if [[ -n "$APP" ]]; then
+        cp -R "$APP" /Applications/
+        xattr -dr com.apple.quarantine "/Applications/$(basename "$APP")" 2>/dev/null || true
+        success "IDE installed: /Applications/$(basename "$APP")"
+      fi
+      hdiutil detach "$MOUNT_POINT" -quiet
+    fi
+    rm -f "$IDE_DMG"
+  else
+    warn "IDE download failed. Download manually from: https://github.com/${REPO}/releases"
+  fi
+else
+  info "Skipping Desktop IDE"
+fi
+
 # ─── Verify ───────────────────────────────────────────────────────────────────
 echo ""
 echo -e "${BOLD}── Verification ────────────────────────────────────${RESET}"
@@ -277,3 +313,8 @@ echo ""
 echo -e "  ${BOLD}Agile sprint:${RESET}"
 echo -e "    ${GREEN}${BINARY_NAME} --agile \"Build a REST API\" --project myapp${RESET}"
 echo ""
+if [[ "${ide_answer,,}" == "y" ]]; then
+echo -e "  ${BOLD}Desktop IDE:${RESET}"
+echo -e "    Open ${GREEN}Swing-by IDE${RESET} from Applications or Spotlight"
+echo ""
+fi

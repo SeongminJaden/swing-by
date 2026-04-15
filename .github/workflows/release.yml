@@ -10,9 +10,10 @@ env:
   BINARY_NAME: ai_agent
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
+# ─── Job 1: Rust CLI binaries ────────────────────────────────────────────────
 jobs:
-  build:
-    name: Build — ${{ matrix.target }}
+  build-cli:
+    name: CLI — ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -61,15 +62,112 @@ jobs:
         run: |
           Copy-Item "target/${{ matrix.target }}/release/${{ env.BINARY_NAME }}.exe" "${{ matrix.artifact }}"
 
-      - name: Upload artifact
+      - name: Upload CLI artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
           path: ${{ matrix.artifact }}
 
+# ─── Job 2: Electron Desktop IDE ─────────────────────────────────────────────
+  build-ide:
+    name: IDE — ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            rust_target: x86_64-unknown-linux-gnu
+            electron_args: --linux
+            artifacts: "editor/release/*.AppImage"
+
+          - os: macos-latest
+            rust_target: aarch64-apple-darwin
+            electron_args: --mac --arm64
+            artifacts: "editor/release/*.dmg"
+
+          - os: macos-13
+            rust_target: x86_64-apple-darwin
+            electron_args: --mac --x64
+            artifacts: "editor/release/*.dmg"
+
+          - os: windows-latest
+            rust_target: x86_64-pc-windows-msvc
+            electron_args: --win
+            artifacts: "editor/release/*.exe"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # ── Rust: build ai_agent binary ──────────────────────────────────────
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust_target }}
+
+      - name: Build Rust binary
+        run: cargo build --release --target ${{ matrix.rust_target }}
+
+      - name: Copy binary to target/release (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          cp target/${{ matrix.rust_target }}/release/ai_agent target/release/ai_agent 2>/dev/null || true
+
+      - name: Copy binary to target/release (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Copy-Item "target/${{ matrix.rust_target }}/release/ai_agent.exe" "target/release/ai_agent.exe" -Force
+
+      # ── Node.js + Electron build ─────────────────────────────────────────
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: editor/package-lock.json
+
+      - name: Install dependencies
+        working-directory: editor
+        run: npm ci
+
+      - name: Build renderer + main
+        working-directory: editor
+        run: npm run build:all
+
+      - name: Package Electron app (Linux)
+        if: runner.os == 'Linux'
+        working-directory: editor
+        run: npm run dist:linux
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Package Electron app (macOS)
+        if: runner.os == 'macOS'
+        working-directory: editor
+        run: npm run dist:mac
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+
+      - name: Package Electron app (Windows)
+        if: runner.os == 'Windows'
+        working-directory: editor
+        run: npm run dist:win
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload IDE artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ide-${{ matrix.os }}
+          path: ${{ matrix.artifacts }}
+          if-no-files-found: warn
+
+# ─── Job 3: Create GitHub Release ────────────────────────────────────────────
   release:
     name: Create Release
-    needs: build
+    needs: [build-cli, build-ide]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -84,7 +182,8 @@ jobs:
       - name: Generate checksums
         run: |
           cd artifacts
-          find . -type f -exec sha256sum {} \; | sed 's|./[^/]*/||' | sort > ../checksums.txt
+          find . -type f \( -name "ai_agent-*" -o -name "*.AppImage" -o -name "*.dmg" -o -name "*.exe" \) \
+            -exec sha256sum {} \; | sed 's|./[^/]*/||' | sort > ../checksums.txt
           cat ../checksums.txt
 
       - name: Create Release
@@ -94,9 +193,11 @@ jobs:
           body: |
             ## Swing-by ${{ github.ref_name }}
 
-            Local LLM multi-agent system powered by Ollama.
+            Local LLM multi-agent system + desktop IDE powered by Ollama.
 
-            ### Quick Install
+            ---
+
+            ### Quick Install (CLI only)
 
             **Linux:**
             ```bash
@@ -113,7 +214,25 @@ jobs:
             irm https://raw.githubusercontent.com/${{ github.repository }}/main/install.ps1 | iex
             ```
 
-            ### Downloads
+            ---
+
+            ### Desktop IDE
+
+            Download the GUI desktop app for your platform:
+
+            | Platform | File |
+            |----------|------|
+            | Linux x86_64 | `swing-by-ide-*-x64.AppImage` |
+            | macOS Apple Silicon | `swing-by-ide-*-arm64.dmg` |
+            | macOS Intel | `swing-by-ide-*-x64.dmg` |
+            | Windows x86_64 | `swing-by-ide-*-setup.exe` |
+
+            The IDE bundles the `ai_agent` binary — no separate CLI install needed.
+
+            ---
+
+            ### CLI Downloads
+
             | Platform | File |
             |----------|------|
             | Linux x86_64 | `ai_agent-linux-x86_64` |

@@ -215,6 +215,32 @@ $env:OLLAMA_MODEL   = $MODEL
 
 Write-Success "Environment variables set (OLLAMA_MODEL=$MODEL)"
 
+# ─── Desktop IDE (optional) ───────────────────────────────────────────────────
+Write-Host ""
+Write-Host "-- Desktop IDE (optional) --------------------------------" -ForegroundColor White
+Write-Host ""
+Write-Host "  Swing-by IDE is a GUI desktop app for the multi-agent pipeline." -ForegroundColor Gray
+Write-Host ""
+$ideAnswer = Ask "Install Swing-by Desktop IDE? [y/N]"
+$ideInstalled = $false
+if ($ideAnswer -eq 'y' -or $ideAnswer -eq 'Y') {
+    $IDE_URL  = "https://github.com/$REPO/releases/latest/download/swing-by-ide-windows-setup.exe"
+    $IDE_PATH = "$env:TEMP\swing-by-ide-setup.exe"
+    Write-Info "Downloading Swing-by IDE..."
+    try {
+        Invoke-WebRequest $IDE_URL -OutFile $IDE_PATH -UseBasicParsing
+        Write-Info "Running installer (silent)..."
+        Start-Process $IDE_PATH -Wait -ArgumentList "/SILENT", "/NORESTART"
+        Remove-Item $IDE_PATH -Force -ErrorAction SilentlyContinue
+        Write-Success "Swing-by IDE installed"
+        $ideInstalled = $true
+    } catch {
+        Write-Warn "IDE download failed. Download from: https://github.com/$REPO/releases"
+    }
+} else {
+    Write-Info "Skipping Desktop IDE"
+}
+
 # ─── Verify ───────────────────────────────────────────────────────────────────
 Write-Host ""
 Write-Host "-- Verification ------------------------------------------" -ForegroundColor White
@@ -239,4 +265,9 @@ Write-Host "  Quick start (restart terminal first):" -ForegroundColor White
 Write-Host "    $BINARY_NAME                              # start chat" -ForegroundColor Green
 Write-Host "    $BINARY_NAME --help                       # show options" -ForegroundColor Green
 Write-Host "    $BINARY_NAME --agile `"Build a REST API`"  # agile sprint" -ForegroundColor Green
+if ($ideInstalled) {
+    Write-Host ""
+    Write-Host "  Desktop IDE:" -ForegroundColor White
+    Write-Host "    Search 'Swing-by IDE' in Start Menu" -ForegroundColor Green
+}
 Write-Host ""

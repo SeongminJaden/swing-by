@@ -1,0 +1,605 @@
+/* ===== Workflow Canvas 스타일 =====
+ * VidEplace Design System
+ * - 노드 기반 워크플로우 캔버스
+ * - 애니메이션 연결선
+ * - 부드러운 전환 효과
+ */
+
+/* ========================================
+   Canvas Container
+   ======================================== */
+.workflow-canvas {
+  @apply relative w-full h-full overflow-hidden bg-bg-primary;
+}
+
+.workflow-grid-bg {
+  @apply relative;
+  background-image: radial-gradient(circle, var(--color-bg-elevated) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* ========================================
+   줌 컨트롤
+   ======================================== */
+.workflow-zoom-controls {
+  @apply fixed flex items-center gap-2 bg-bg-secondary border border-border-primary;
+  bottom: 28px;
+  right: 28px;
+  padding: 12px 20px;
+  border-radius: 20px;
+  z-index: 100;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+}
+
+.workflow-zoom-btn {
+  @apply flex items-center justify-center text-text-secondary;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  transition: all 0.15s ease;
+}
+
+.workflow-zoom-btn:hover {
+  @apply bg-bg-hover text-text-primary;
+}
+
+.workflow-zoom-label {
+  @apply text-text-primary;
+  font-size: 13px;
+  font-weight: 600;
+  min-width: 40px;
+  text-align: center;
+}
+
+/* ========================================
+   SVG Connection Layer
+   ======================================== */
+.workflow-svg-layer {
+  @apply absolute inset-0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ========================================
+   Workflow Nodes
+   ======================================== */
+.workflow-node {
+  @apply absolute flex items-center bg-bg-secondary border border-border-primary;
+  border-radius: 16px;
+  padding: 16px 20px;
+  gap: 12px;
+  z-index: 2;
+  cursor: pointer;
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+}
+
+.workflow-node:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.workflow-node-selected {
+  border-color: var(--color-accent-primary) !important;
+  box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.3), 0 8px 24px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* --- Status Variants --- */
+.workflow-node-completed {
+  border-left: 3px solid var(--color-accent-success);
+}
+
+.workflow-node-active {
+  border-left: 3px solid var(--color-accent-primary);
+  box-shadow: 0 0 20px rgba(88, 166, 255, 0.15);
+}
+
+.workflow-node-pending {
+  border-left: 3px solid var(--color-border-primary);
+  opacity: 0.65;
+}
+
+.workflow-node-pending:hover {
+  opacity: 0.85;
+}
+
+.workflow-node-error {
+  border-left: 3px solid var(--color-accent-error);
+  box-shadow: 0 0 16px rgba(248, 81, 73, 0.12);
+}
+
+/* ========================================
+   Node Inner Elements
+   ======================================== */
+.workflow-node-icon {
+  @apply flex shrink-0 items-center justify-center bg-bg-elevated;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+}
+
+.workflow-node-text {
+  @apply flex flex-col min-w-0;
+  gap: 2px;
+}
+
+.workflow-node-title {
+  @apply font-semibold text-text-primary;
+  font-size: 13px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.workflow-node-subtitle {
+  @apply text-text-tertiary;
+  font-size: 11px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+/* --- Completed badge --- */
+.workflow-node-badge-completed {
+  @apply absolute flex items-center justify-center bg-accent-success text-white;
+  top: -6px;
+  right: -6px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  box-shadow: 0 2px 8px rgba(63, 185, 80, 0.4);
+}
+
+/* ========================================
+   Connection Line Animations
+   ======================================== */
+.workflow-connection-animated {
+  animation: workflow-dash-flow 1.5s linear infinite;
+}
+
+@keyframes workflow-dash-flow {
+  from {
+    stroke-dashoffset: 24;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* ========================================
+   Pulse Glow (active node)
+   ======================================== */
+.workflow-pulse {
+  @apply absolute inset-0;
+  border-radius: 16px;
+  pointer-events: none;
+  animation: workflow-pulse-glow 2s ease-in-out infinite;
+}
+
+@keyframes workflow-pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(88, 166, 255, 0.25);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(88, 166, 255, 0);
+  }
+}
+
+/* ========================================
+   Float Animation (active node)
+   ======================================== */
+.workflow-float {
+  animation: workflow-float-move 3s ease-in-out infinite;
+}
+
+@keyframes workflow-float-move {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+/* Override hover when floating to avoid conflict */
+.workflow-float:hover {
+  animation: none;
+  transform: translateY(-2px);
+}
+
+/* ========================================
+   Node Info Panel (노드 클릭 시 상태 패널)
+   ======================================== */
+.node-info-panel {
+  @apply fixed flex flex-col bg-bg-secondary border border-border-primary;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 440px;
+  max-height: 520px;
+  border-radius: 24px;
+  z-index: 110;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+  animation: node-info-open 0.2s ease;
+}
+
+@keyframes node-info-open {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(0.95); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
+.node-info-header {
+  @apply flex items-center justify-between shrink-0 border-b border-border-primary;
+  padding: 20px 24px;
+}
+
+.node-info-icon {
+  @apply flex shrink-0 items-center justify-center;
+  width: 40px;
+  height: 40px;
+  border-radius: 14px;
+  background: var(--color-bg-elevated);
+}
+
+.node-info-title {
+  @apply font-bold text-text-primary;
+  font-size: 16px;
+  line-height: 1.3;
+}
+
+.node-info-subtitle {
+  @apply text-text-tertiary;
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+.node-info-status-badge {
+  @apply flex items-center gap-1.5 shrink-0 font-semibold;
+  font-size: 12px;
+  padding: 5px 12px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+
+.node-info-close {
+  @apply flex items-center justify-center text-text-tertiary;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  transition: all 0.15s ease;
+}
+
+.node-info-close:hover {
+  @apply bg-bg-hover text-text-primary;
+}
+
+/* AI Summary */
+.node-info-summary {
+  @apply flex gap-3 text-text-primary;
+  padding: 16px 24px;
+  font-size: 14px;
+  line-height: 1.5;
+  background: var(--color-bg-tertiary);
+}
+
+/* Details rows */
+.node-info-details {
+  @apply flex flex-col;
+  padding: 8px 24px;
+}
+
+.node-info-row {
+  @apply flex items-center justify-between border-b border-border-secondary;
+  padding: 12px 0;
+}
+
+.node-info-row:last-child {
+  border-bottom: none;
+}
+
+.node-info-row-label {
+  @apply text-text-secondary;
+  font-size: 13px;
+}
+
+.node-info-row-value {
+  @apply text-text-primary font-semibold;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+/* AI Note */
+.node-info-ai-note {
+  @apply border-t border-border-primary;
+  padding: 16px 24px;
+  margin: 0;
+}
+
+.node-info-ai-note-header {
+  @apply flex items-center gap-1.5 font-semibold text-accent-primary;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+.node-info-ai-note-text {
+  @apply text-text-secondary;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+/* ========================================
+   Chat Widget (하단 중앙 오버레이)
+   ======================================== */
+
+/* 닫힌 상태: 트리거 버튼 */
+.chat-widget-trigger {
+  @apply fixed flex items-center gap-2 bg-accent-primary text-white font-semibold;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 12px 20px;
+  border-radius: 20px;
+  font-size: 14px;
+  z-index: 100;
+  box-shadow: 0 8px 32px rgba(88, 166, 255, 0.35);
+  transition: all 0.2s ease;
+}
+
+.chat-widget-trigger:hover {
+  box-shadow: 0 12px 40px rgba(88, 166, 255, 0.45);
+  transform: translateX(-50%) translateY(-2px);
+}
+
+.chat-widget-badge {
+  @apply bg-white/20 text-white;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+/* 열린 상태: 위젯 패널 */
+.chat-widget {
+  @apply fixed flex flex-col bg-bg-secondary border border-border-primary;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 560px;
+  max-height: 480px;
+  border-radius: 24px;
+  z-index: 100;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+  animation: chat-widget-open 0.25s ease;
+}
+
+@keyframes chat-widget-open {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+}
+
+.chat-widget-header {
+  @apply flex items-center justify-between shrink-0 border-b border-border-primary;
+  padding: 14px 20px;
+}
+
+.chat-widget-header-title {
+  @apply text-text-primary font-semibold;
+  font-size: 14px;
+}
+
+.chat-widget-model-badge {
+  @apply text-accent-primary bg-accent-primary/10;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 10px;
+}
+
+.chat-widget-header-btn {
+  @apply flex items-center justify-center text-text-tertiary;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  transition: all 0.15s ease;
+}
+
+.chat-widget-header-btn:hover {
+  @apply bg-bg-hover text-text-primary;
+}
+
+/* 메시지 영역 */
+.chat-widget-messages {
+  @apply flex-1 overflow-y-auto;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.chat-widget-msg-user {
+  @apply flex justify-end;
+}
+
+.chat-widget-msg-ai {
+  @apply flex gap-2 items-start;
+}
+
+.chat-widget-msg-avatar {
+  @apply shrink-0 flex items-center justify-center bg-accent-primary/10 text-accent-primary;
+  width: 28px;
+  height: 28px;
+  border-radius: 10px;
+  margin-top: 2px;
+}
+
+.chat-widget-bubble-user {
+  @apply bg-accent-primary/15 text-text-primary;
+  padding: 10px 16px;
+  border-radius: 16px 16px 4px 16px;
+  font-size: 13px;
+  line-height: 1.5;
+  max-width: 80%;
+}
+
+.chat-widget-bubble-ai {
+  @apply bg-bg-elevated text-text-primary;
+  padding: 10px 16px;
+  border-radius: 16px 16px 16px 4px;
+  font-size: 13px;
+  line-height: 1.5;
+  max-width: 85%;
+}
+
+.chat-widget-msg-time {
+  @apply text-text-tertiary block;
+  font-size: 10px;
+  margin-top: 4px;
+  text-align: right;
+}
+
+/* 입력 영역 */
+.chat-widget-input-area {
+  @apply shrink-0 border-t border-border-primary;
+  padding: 12px 16px;
+}
+
+.chat-widget-input-row {
+  @apply flex items-center gap-2 bg-bg-primary border border-border-primary;
+  padding: 6px 8px;
+  border-radius: 14px;
+}
+
+.chat-widget-input-btn {
+  @apply flex items-center justify-center text-text-tertiary shrink-0;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  transition: all 0.15s ease;
+}
+
+.chat-widget-input-btn:hover {
+  @apply text-text-secondary bg-bg-hover;
+}
+
+.chat-widget-input {
+  @apply flex-1 bg-transparent text-text-primary outline-none border-none;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.chat-widget-input::placeholder {
+  @apply text-text-tertiary;
+}
+
+.chat-widget-send-btn {
+  @apply flex items-center justify-center bg-accent-primary text-white shrink-0;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  transition: all 0.15s ease;
+}
+
+.chat-widget-send-btn:hover {
+  filter: brightness(1.1);
+}
+
+/* ========================================
+   코드 저장 액션 카드 (Chat Widget 내부)
+   ======================================== */
+.chat-code-save-card {
+  @apply bg-bg-tertiary border border-border-primary;
+  border-radius: 14px;
+  margin: 4px 0 4px 36px;
+  overflow: hidden;
+  animation: chat-code-save-open 0.2s ease;
+}
+
+@keyframes chat-code-save-open {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.chat-code-save-header {
+  @apply flex items-center gap-2 border-b border-border-secondary;
+  padding: 10px 14px;
+}
+
+.chat-code-save-title {
+  @apply text-text-primary font-semibold;
+  font-size: 12px;
+}
+
+.chat-code-save-list {
+  @apply flex flex-col;
+  padding: 6px 0;
+}
+
+.chat-code-save-item {
+  @apply flex items-center justify-between;
+  padding: 5px 14px;
+  transition: background-color 0.1s ease;
+}
+
+.chat-code-save-item:hover {
+  @apply bg-bg-hover;
+}
+
+.chat-code-save-filepath {
+  @apply text-text-secondary;
+  font-size: 12px;
+  font-family: var(--font-mono, monospace);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-code-save-lang {
+  @apply text-text-tertiary shrink-0;
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: var(--color-bg-elevated);
+}
+
+.chat-code-save-open-btn {
+  @apply flex items-center gap-1 text-accent-primary shrink-0;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 8px;
+  transition: all 0.15s ease;
+}
+
+.chat-code-save-open-btn:hover {
+  @apply bg-accent-primary/10;
+}
+
+.chat-code-save-btn {
+  @apply flex items-center justify-center gap-2 w-full bg-accent-primary text-white font-semibold;
+  padding: 10px;
+  font-size: 12px;
+  border-top: 1px solid var(--color-border-secondary);
+  transition: all 0.15s ease;
+}
+
+.chat-code-save-btn:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+.chat-code-save-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.chat-code-save-result {
+  @apply flex items-center justify-center;
+  padding: 10px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  border-top: 1px solid var(--color-border-secondary);
+}

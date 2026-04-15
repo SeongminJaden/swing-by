@@ -232,6 +232,48 @@ fi
 export OLLAMA_API_URL="http://localhost:11434"
 export OLLAMA_MODEL="${MODEL:-gemma4:e4b}"
 
+# ─── Desktop IDE (optional) ───────────────────────────────────────────────────
+echo ""
+echo -e "${BOLD}── Desktop IDE (optional) ──────────────────────────${RESET}"
+echo ""
+echo -e "  Swing-by IDE is a GUI desktop app (Electron) that lets you"
+echo -e "  visualize and control the multi-agent pipeline visually."
+echo ""
+ask "Install Swing-by Desktop IDE? [y/N]"
+read -r ide_answer < /dev/tty
+if [[ "${ide_answer,,}" == "y" ]]; then
+  IDE_APPIMAGE_URL="https://github.com/${REPO}/releases/latest/download/swing-by-ide-linux-x86_64.AppImage"
+  if [[ "$ARCH_LABEL" == "arm64" ]]; then
+    IDE_APPIMAGE_URL="https://github.com/${REPO}/releases/latest/download/swing-by-ide-linux-arm64.AppImage"
+  fi
+  IDE_INSTALL_DIR="$HOME/.local/bin"
+  IDE_APPIMAGE="$IDE_INSTALL_DIR/swing-by-ide.AppImage"
+  mkdir -p "$IDE_INSTALL_DIR"
+  info "Downloading Swing-by IDE..."
+  if curl -fSL --progress-bar "$IDE_APPIMAGE_URL" -o "$IDE_APPIMAGE"; then
+    chmod +x "$IDE_APPIMAGE"
+    # Create desktop shortcut
+    DESKTOP_FILE="$HOME/.local/share/applications/swing-by-ide.desktop"
+    mkdir -p "$(dirname "$DESKTOP_FILE")"
+    cat > "$DESKTOP_FILE" <<DESK
+[Desktop Entry]
+Name=Swing-by IDE
+Comment=Local AI Agent Multi-Agent IDE
+Exec=$IDE_APPIMAGE
+Icon=utilities-terminal
+Terminal=false
+Type=Application
+Categories=Development;
+DESK
+    success "IDE installed: $IDE_APPIMAGE"
+    success "Desktop shortcut created"
+  else
+    warn "IDE download failed. Download manually from: https://github.com/${REPO}/releases"
+  fi
+else
+  info "Skipping Desktop IDE"
+fi
+
 # ─── Verify installation ──────────────────────────────────────────────────────
 echo ""
 echo -e "${BOLD}── Verification ────────────────────────────────────${RESET}"
@@ -261,3 +303,8 @@ echo ""
 echo -e "  ${BOLD}Agile sprint:${RESET}"
 echo -e "    ${GREEN}${BINARY_NAME} --agile \"Build a REST API\" --project myapp${RESET}"
 echo ""
+if [[ "${ide_answer,,}" == "y" ]] && [[ -f "$IDE_APPIMAGE" ]]; then
+echo -e "  ${BOLD}Desktop IDE:${RESET}"
+echo -e "    ${GREEN}${IDE_APPIMAGE}${RESET}   # launch GUI"
+echo ""
+fi

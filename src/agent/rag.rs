@@ -47,6 +47,7 @@ pub struct RagIndex {
 }
 
 impl RagIndex {
+    #[allow(dead_code)]
     pub fn is_empty(&self) -> bool {
         self.chunks.is_empty()
     }

@@ -1,0 +1,31 @@
+appId: com.videplace.ide
+productName: VidEplace
+directories:
+  output: release
+  buildResources: build
+files:
+  - dist/**/*
+  - node_modules/**/*
+  - "!node_modules/**/{test,tests,__tests__}/**"
+  - "!node_modules/**/*.{md,ts,map}"
+linux:
+  target:
+    - AppImage
+    - deb
+  category: Development
+mac:
+  target:
+    - dmg
+    - zip
+  category: public.app-category.developer-tools
+win:
+  target:
+    - nsis
+    - portable
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+publish:
+  provider: github
+  owner: SeongminJaden
+  repo: videplace

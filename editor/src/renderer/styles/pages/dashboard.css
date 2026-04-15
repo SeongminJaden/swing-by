@@ -1,0 +1,101 @@
+/* ===== 대시보드 페이지 스타일 ===== */
+
+.dashboard-header {
+  @apply flex items-end justify-between;
+  margin-bottom: 40px;
+}
+
+/* --- 프로젝트 그리드 --- */
+.project-grid {
+  @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3;
+  gap: 28px;
+}
+
+.project-card {
+  @apply bg-bg-secondary border border-border-primary cursor-pointer text-left flex flex-col;
+  border-radius: 24px;
+  padding: 36px;
+  min-height: 320px;
+  transition: all 0.25s ease;
+}
+
+.project-card:hover {
+  @apply border-accent-primary/40 bg-bg-tertiary;
+  transform: translateY(-4px);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
+}
+
+.project-card-icon {
+  @apply flex shrink-0 items-center justify-center bg-accent-primary/10;
+  width: 64px;
+  height: 64px;
+  border-radius: 20px;
+  transition: background-color 0.2s ease;
+}
+
+.project-card:hover .project-card-icon {
+  @apply bg-accent-primary/20;
+}
+
+.project-card-title {
+  @apply font-bold text-text-primary tracking-tight;
+  font-size: 26px;
+  line-height: 1.3;
+  margin-top: 28px;
+  margin-bottom: 12px;
+  transition: color 0.2s ease;
+}
+
+.project-card:hover .project-card-title {
+  @apply text-accent-primary;
+}
+
+.project-card-footer {
+  @apply flex items-center justify-between border-t border-border-primary;
+  padding-top: 24px;
+  margin-top: 16px;
+}
+
+.project-card-arrow {
+  @apply shrink-0 text-text-tertiary;
+  opacity: 0;
+  transition: all 0.2s ease;
+}
+
+.project-card:hover .project-card-arrow {
+  opacity: 1;
+  transform: translateX(4px);
+}
+
+/* --- 서비스 그리드 --- */
+.service-grid {
+  @apply grid grid-cols-1 sm:grid-cols-3;
+  gap: 24px;
+}
+
+.service-card {
+  @apply flex items-center bg-bg-secondary border border-border-primary;
+  border-radius: 24px;
+  padding: 28px 32px;
+  gap: 24px;
+  transition: all 0.25s ease;
+}
+
+.service-card:hover {
+  @apply bg-bg-tertiary;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.15);
+}
+
+.service-card-icon-connected {
+  @apply flex shrink-0 items-center justify-center bg-accent-success/10 text-accent-success;
+  width: 56px;
+  height: 56px;
+  border-radius: 18px;
+}
+
+.service-card-icon-disconnected {
+  @apply flex shrink-0 items-center justify-center bg-bg-elevated text-text-tertiary;
+  width: 56px;
+  height: 56px;
+  border-radius: 18px;
+}

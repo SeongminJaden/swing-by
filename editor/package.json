@@ -1,0 +1,112 @@
+{
+  "name": "swing-by-ide",
+  "version": "0.1.0",
+  "description": "Swing-by AI Agent IDE — local multi-agent desktop IDE powered by Ollama",
+  "main": "dist/main/main.js",
+  "scripts": {
+    "dev": "vite",
+    "dev:electron": "concurrently \"vite\" \"wait-on http://localhost:5173 && NODE_ENV=development electron .\"",
+    "build": "tsc && vite build",
+    "build:electron": "tsc -p tsconfig.main.json",
+    "build:all": "npm run build && npm run build:electron",
+    "pack": "npm run build:all && electron-builder --dir",
+    "dist": "npm run build:all && electron-builder",
+    "dist:linux": "npm run build:all && electron-builder --linux",
+    "dist:mac": "npm run build:all && electron-builder --mac",
+    "dist:win": "npm run build:all && electron-builder --win",
+    "preview": "vite preview"
+  },
+  "keywords": [
+    "ide",
+    "ai",
+    "electron",
+    "vibe-coding"
+  ],
+  "author": "SeongminJaden",
+  "license": "MIT",
+  "build": {
+    "extends": null,
+    "appId": "com.swing-by.ide",
+    "productName": "Swing-by IDE",
+    "copyright": "Copyright © 2025 SeongminJaden",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**/*",
+      "node_modules/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../target/release/ai_agent",
+        "to": "ai_agent",
+        "filter": ["**/*"]
+      },
+      {
+        "from": "../target/release/ai_agent.exe",
+        "to": "ai_agent.exe",
+        "filter": ["**/*"]
+      }
+    ],
+    "linux": {
+      "target": [
+        { "target": "AppImage", "arch": ["x64", "arm64"] }
+      ],
+      "category": "Development",
+      "artifactName": "swing-by-ide-${version}-${arch}.AppImage"
+    },
+    "mac": {
+      "target": [
+        { "target": "dmg", "arch": ["x64", "arm64"] }
+      ],
+      "category": "public.app-category.developer-tools",
+      "artifactName": "swing-by-ide-${version}-${arch}.dmg"
+    },
+    "win": {
+      "target": [
+        { "target": "nsis", "arch": ["x64"] }
+      ],
+      "artifactName": "swing-by-ide-${version}-setup.exe"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico"
+    }
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.79.0",
+    "@monaco-editor/react": "^4.7.0",
+    "@supabase/supabase-js": "^2.99.2",
+    "@xterm/addon-fit": "^0.11.0",
+    "electron-updater": "^6.8.3",
+    "lucide-react": "^0.577.0",
+    "node-pty": "^1.1.0",
+    "openai": "^6.32.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "react-resizable-panels": "^4.7.3",
+    "simple-git": "^3.33.0",
+    "stripe": "^20.4.1",
+    "xterm": "^5.3.0",
+    "zustand": "^5.0.12"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.2.1",
+    "@types/node": "^25.5.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^4.7.0",
+    "concurrently": "^9.2.1",
+    "electron": "^41.0.2",
+    "electron-builder": "^26.8.1",
+    "tailwindcss": "^4.2.1",
+    "typescript": "^5.9.3",
+    "vite": "^6.4.1",
+    "wait-on": "^9.0.4",
+    "ws": "^8.19.0"
+  }
+}

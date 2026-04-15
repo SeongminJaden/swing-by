@@ -620,7 +620,7 @@ fn chrono_now() -> String {
     let min = (s / 60) % 60;
     let hour = (s / 3600) % 24;
     let days = s / 86400 + 719468;  // Unix epoch → civil date
-    let era = if days >= 0 { days } else { days - 146096 } / 146097;
+    let era = days / 146097;
     let doe = days - era * 146097;
     let yoe = (doe - doe/1460 + doe/36524 - doe/146096) / 365;
     let y = yoe + era * 400;

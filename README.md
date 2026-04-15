@@ -7,11 +7,49 @@
 
 [![Rust](https://img.shields.io/badge/rust-1.75%2B-orange)](https://www.rust-lang.org/)
 [![Ollama](https://img.shields.io/badge/ollama-compatible-blue)](https://ollama.ai)
+[![Electron](https://img.shields.io/badge/electron-41-47848F)](https://electronjs.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow)](LICENSE)
 [![](https://img.shields.io/badge/Support_tok__coding-☕-yellow?style=for-the-badge)](https://buymeacoffee.com/tok_coding)
 
 > If you find this project useful, consider buying me a coffee! ☕  
 > It helps keep the project alive and supports future development.
+
+---
+
+## Desktop IDE
+
+Swing-by includes a full **GUI desktop IDE** built with Electron + React that connects directly to the Rust agent via JSON-RPC 2.0 IPC.
+
+**Features:**
+- **Agent Cards** — sidebar panel showing all 13 agents grouped by pipeline stage (Planning → Design → Dev → QA → Security → Release), with live status badges
+- **Agent Detail Overlay** — click any card to open a right-side panel with logs, progress bar, duration, and last output
+- **Agent Graph** — node-based pipeline visualization with animated edges showing data flow between agents; pan/zoom support
+- **AI Chat** — built-in chat panel with three modes: *AI Agent (Rust)*, *Claude API*, *OpenAI GPT-4o*
+- **Code Editor** — Monaco Editor (VS Code engine) with file explorer, git panel, terminal, deploy panel
+- **Sprint Runner** — type a request, click Run Sprint, watch all 13 agents execute in real-time
+
+**Download the IDE from [Releases](https://github.com/SeongminJaden/swing-by/releases/latest):**
+
+| Platform | File |
+|----------|------|
+| Linux x86_64 | `swing-by-ide-*-x64.AppImage` |
+| macOS Apple Silicon | `swing-by-ide-*-arm64.dmg` |
+| macOS Intel | `swing-by-ide-*-x64.dmg` |
+| Windows x86_64 | `swing-by-ide-*-setup.exe` |
+
+**Or build from source:**
+```bash
+# 1. Build the Rust binary first
+cargo build --release
+
+# 2. Install Node.js dependencies and launch
+cd editor
+npm install
+npm run dev:electron       # development mode
+npm run dist               # build distributable package
+```
+
+> **Note:** The IDE bundles `ai_agent` automatically when building a release package. In dev mode, it looks for `target/release/ai_agent` (or `target/debug/ai_agent`) relative to the project root.
 
 ---
 
@@ -55,7 +93,7 @@ The installer interactively guides you through:
    8) Enter custom model name
 ```
 
-### Manual Install
+### Manual Install (CLI)
 Download the binary directly from the [Releases page](https://github.com/SeongminJaden/swing-by/releases/latest):
 
 | Platform | File |

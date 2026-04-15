@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VidEplace IDE - AI 기반 올인원 IDE</title>
+<meta name="description" content="AI 코드 생성, 원클릭 배포, 보안 스캔, 팀 협업을 하나의 IDE에서. VidEplace와 함께 개발을 혁신하세요.">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--surface:#161b22;--border:#30363d;--text:#e6edf3;--muted:#8b949e;--accent:#58a6ff;--purple:#bc8cff}
+body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.6;overflow-x:hidden}
+a{color:var(--accent);text-decoration:none}
+.container{max-width:1200px;margin:0 auto;padding:0 24px}
+@keyframes fadeUp{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+.animate{animation:fadeUp .6s ease both}
+.d1{animation-delay:.1s}.d2{animation-delay:.2s}.d3{animation-delay:.3s}.d4{animation-delay:.4s}
+
+/* Hero */
+.hero{min-height:100vh;display:flex;align-items:center;justify-content:center;text-align:center;padding:80px 24px}
+.hero-inner{max-width:700px}
+.logo{width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--purple));display:inline-flex;align-items:center;justify-content:center;font-size:40px;font-weight:700;color:#fff;margin-bottom:24px;animation:float 3s ease-in-out infinite}
+h1{font-size:clamp(2rem,5vw,3.5rem);font-weight:800;margin-bottom:12px}
+h1 span{background:linear-gradient(90deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.tagline{font-size:1.25rem;color:var(--muted);margin-bottom:40px}
+.btn-group{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:12px 28px;border-radius:8px;font-size:1rem;font-weight:600;transition:transform .2s,box-shadow .2s}
+.btn-primary{background:linear-gradient(135deg,var(--accent),var(--purple));color:#fff}
+.btn-outline{border:1px solid var(--border);color:var(--text);background:var(--surface)}
+.btn:hover{transform:translateY(-2px);box-shadow:0 4px 20px rgba(88,166,255,.3)}
+
+/* Sections */
+section{padding:100px 0}
+.section-title{text-align:center;font-size:clamp(1.5rem,3vw,2.25rem);font-weight:700;margin-bottom:12px}
+.section-sub{text-align:center;color:var(--muted);margin-bottom:56px;font-size:1.1rem}
+
+/* Features */
+.features-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:32px;transition:transform .2s,border-color .2s}
+.card:hover{transform:translateY(-4px);border-color:var(--accent)}
+.card-icon{font-size:2rem;margin-bottom:16px}
+.card h3{font-size:1.15rem;margin-bottom:8px}
+.card p{color:var(--muted);font-size:.95rem}
+
+/* Services */
+.badges{display:flex;flex-wrap:wrap;justify-content:center;gap:12px}
+.badge{background:var(--surface);border:1px solid var(--border);padding:10px 22px;border-radius:40px;font-size:.9rem;font-weight:500;transition:border-color .2s}
+.badge:hover{border-color:var(--accent)}
+
+/* Download */
+.download{text-align:center}
+.dl-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;max-width:720px;margin:0 auto}
+.dl-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:28px 20px;transition:transform .2s,border-color .2s}
+.dl-card:hover{transform:translateY(-4px);border-color:var(--accent)}
+.dl-card .os{font-size:2rem;margin-bottom:8px}
+.dl-card h3{margin-bottom:4px}
+.dl-card p{color:var(--muted);font-size:.85rem;margin-bottom:16px}
+.dl-btn{display:inline-block;padding:8px 24px;border-radius:6px;background:linear-gradient(135deg,var(--accent),var(--purple));color:#fff;font-weight:600;font-size:.9rem}
+
+/* Footer */
+footer{border-top:1px solid var(--border);padding:32px 0;text-align:center;color:var(--muted);font-size:.9rem}
+footer a{color:var(--accent)}
+footer .links{margin-top:8px}
+</style>
+</head>
+<body>
+
+<section class="hero">
+  <div class="hero-inner">
+    <div class="logo animate">V</div>
+    <h1 class="animate d1"><span>VidEplace</span> IDE</h1>
+    <p class="tagline animate d2">AI 기반 올인원 IDE &mdash; 코드 생성부터 배포까지, 하나의 도구로 완성하세요.</p>
+    <div class="btn-group animate d3">
+      <a href="https://github.com/SeongminJaden/videplace/releases/latest" class="btn btn-primary">무료 다운로드</a>
+      <a href="https://github.com/SeongminJaden/videplace" class="btn btn-outline">GitHub</a>
+    </div>
+  </div>
+</section>
+
+<section id="features">
+  <div class="container">
+    <h2 class="section-title">주요 기능</h2>
+    <p class="section-sub">개발 워크플로우의 모든 단계를 하나의 IDE에서 경험하세요.</p>
+    <div class="features-grid">
+      <div class="card animate"><div class="card-icon">🤖</div><h3>AI 코드 생성</h3><p>Claude, OpenAI, Gemini 등 주요 AI 모델과 연동하여 코드를 자동 생성하고 리팩터링합니다.</p></div>
+      <div class="card animate d1"><div class="card-icon">🚀</div><h3>원클릭 배포</h3><p>Vercel, Netlify, Railway를 지원하며, 클릭 한 번으로 프로젝트를 배포할 수 있습니다.</p></div>
+      <div class="card animate d2"><div class="card-icon">🛡️</div><h3>보안 스캔</h3><p>실시간 코드 보안 분석으로 취약점을 조기에 발견하고 안전한 코드를 유지합니다.</p></div>
+      <div class="card animate d3"><div class="card-icon">👥</div><h3>팀 협업</h3><p>실시간 공동 편집, 코드 리뷰, 팀 관리 기능으로 원활한 협업을 지원합니다.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="services">
+  <div class="container">
+    <h2 class="section-title">연동 서비스</h2>
+    <p class="section-sub">다양한 플랫폼과 서비스를 원활하게 연결합니다.</p>
+    <div class="badges">
+      <span class="badge">Claude</span><span class="badge">OpenAI</span><span class="badge">Gemini</span>
+      <span class="badge">Vercel</span><span class="badge">Netlify</span><span class="badge">Railway</span>
+      <span class="badge">GitHub</span><span class="badge">GitLab</span><span class="badge">Docker</span>
+      <span class="badge">Supabase</span><span class="badge">Firebase</span><span class="badge">AWS</span>
+    </div>
+  </div>
+</section>
+
+<section id="download" class="download">
+  <div class="container">
+    <h2 class="section-title">다운로드</h2>
+    <p class="section-sub">운영체제에 맞는 버전을 선택하세요.</p>
+    <div class="dl-cards">
+      <div class="dl-card animate">
+        <div class="os">🐧</div><h3>Linux</h3><p>.deb / .AppImage</p>
+        <a href="https://github.com/SeongminJaden/videplace/releases/latest" class="dl-btn">다운로드</a>
+      </div>
+      <div class="dl-card animate d1">
+        <div class="os">🍎</div><h3>macOS</h3><p>Apple Silicon / Intel</p>
+        <a href="https://github.com/SeongminJaden/videplace/releases/latest" class="dl-btn">다운로드</a>
+      </div>
+      <div class="dl-card animate d2">
+        <div class="os">🪟</div><h3>Windows</h3><p>64-bit installer</p>
+        <a href="https://github.com/SeongminJaden/videplace/releases/latest" class="dl-btn">다운로드</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    <p>&copy; 2026 VidEplace. All rights reserved.</p>
+    <p class="links"><a href="https://github.com/SeongminJaden/videplace">GitHub</a></p>
+  </div>
+</footer>
+
+<script>
+const o=new IntersectionObserver(e=>{e.forEach(el=>{if(el.isIntersecting){el.target.style.animationPlayState='running';o.unobserve(el.target)}})},{threshold:.15});
+document.querySelectorAll('.animate').forEach(el=>{el.style.animationPlayState='paused';o.observe(el)});
+</script>
+</body>
+</html>
