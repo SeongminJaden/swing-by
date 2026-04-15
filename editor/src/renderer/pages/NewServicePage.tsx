@@ -434,7 +434,7 @@ ${getFileList(selectedFramework || '', selectedDb, selectedAuth)}
             <button
               onClick={() => {
                 if (step === 1) {
-                  setCurrentView('dashboard');
+                  setCurrentView('ide');
                 } else {
                   setStep((s) => (s - 1) as Step);
                 }
