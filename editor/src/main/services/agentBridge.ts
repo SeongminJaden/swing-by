@@ -21,14 +21,22 @@ let lineBuffer = '';
 let mainWin: BrowserWindow | null = null;
 
 function getAgentBinaryPath(): string {
-  // In dev: look for cargo build output; in prod: next to app
-  const devPath = path.join(__dirname, '../../../../target/release/ai_agent');
-  const devDebugPath = path.join(__dirname, '../../../../target/debug/ai_agent');
-  const prodPath = path.join(process.resourcesPath ?? '', 'ai_agent');
+  const isWin = process.platform === 'win32';
+  const bin = isWin ? 'ai_agent.exe' : 'ai_agent';
   const { existsSync } = require('fs');
-  if (existsSync(devPath)) return devPath;
-  if (existsSync(devDebugPath)) return devDebugPath;
-  return prodPath;
+
+  // Packaged app: binary is in extraResources
+  const prodPath = path.join(process.resourcesPath ?? '', bin);
+  if (existsSync(prodPath)) return prodPath;
+
+  // Dev: cargo build output
+  const devRelease = path.join(__dirname, '../../../../target/release', bin);
+  if (existsSync(devRelease)) return devRelease;
+
+  const devDebug = path.join(__dirname, '../../../../target/debug', bin);
+  if (existsSync(devDebug)) return devDebug;
+
+  return prodPath; // fallback (will fail gracefully)
 }
 
 function ensureAgent(): boolean {
@@ -101,7 +109,7 @@ function ensureAgent(): boolean {
 function sendRpc(method: string, params: Record<string, unknown>): Promise<any> {
   return new Promise((resolve, reject) => {
     if (!ensureAgent()) {
-      return reject(new Error('Failed to start ai_agent process. Make sure it is compiled (cargo build --release).'));
+      return reject(new Error('AI Agent binary not found. Please reinstall the app.'));
     }
 
     const id = requestId++;
