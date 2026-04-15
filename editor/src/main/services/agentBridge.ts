@@ -114,6 +114,16 @@ function ensureAgent(): boolean {
   }
 }
 
+// Timeouts per method type
+const RPC_TIMEOUTS: Record<string, number> = {
+  ping:          5_000,
+  initialize:   10_000,
+  capabilities: 10_000,
+  chat:        300_000,  // 5 min — model can be slow
+  agile_sprint: 600_000, // 10 min — 13 agents
+  board_status:  30_000,
+};
+
 function sendRpc(method: string, params: Record<string, unknown>): Promise<any> {
   return new Promise((resolve, reject) => {
     if (!ensureAgent()) {
@@ -126,13 +136,13 @@ function sendRpc(method: string, params: Record<string, unknown>): Promise<any> 
     const req = JSON.stringify({ jsonrpc: '2.0', id, method, params });
     agentProcess!.stdin!.write(req + '\n');
 
-    // Timeout
+    const timeout = RPC_TIMEOUTS[method] ?? 120_000;
     setTimeout(() => {
       if (pending.has(id)) {
         pending.delete(id);
-        reject(new Error(`RPC timeout: ${method}`));
+        reject(new Error(`RPC timeout: ${method} (${timeout / 1000}s)`));
       }
-    }, 60_000);
+    }, timeout);
   });
 }
 
