@@ -28,7 +28,7 @@ jobs:
             artifact: ai_agent-linux-arm64
 
           - target: x86_64-apple-darwin
-            os: macos-13
+            os: macos-latest
             artifact: ai_agent-macos-x86_64
 
           - target: aarch64-apple-darwin
@@ -46,6 +46,10 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
+
+      - name: Add macOS x86_64 target (cross-compile on arm64 runner)
+        if: matrix.target == 'x86_64-apple-darwin'
+        run: rustup target add x86_64-apple-darwin
 
       - name: Build
         run: cargo build --release --target ${{ matrix.target }}
@@ -86,7 +90,7 @@ jobs:
             electron_args: --mac --arm64
             artifacts: "editor/release/*.dmg"
 
-          - os: macos-13
+          - os: macos-latest
             rust_target: x86_64-apple-darwin
             electron_args: --mac --x64
             artifacts: "editor/release/*.dmg"
@@ -104,6 +108,10 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.rust_target }}
+
+      - name: Add macOS x86_64 target (cross-compile on arm64 runner)
+        if: matrix.rust_target == 'x86_64-apple-darwin'
+        run: rustup target add x86_64-apple-darwin
 
       - name: Build Rust binary
         run: cargo build --release --target ${{ matrix.rust_target }}
