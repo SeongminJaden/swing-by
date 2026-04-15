@@ -156,7 +156,7 @@ jobs:
       - name: Package Electron app (macOS)
         if: runner.os == 'macOS'
         working-directory: editor
-        run: npm run build:all && electron-builder ${{ matrix.electron_args }} --publish never
+        run: npm run build:all && npx electron-builder ${{ matrix.electron_args }} --publish never
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_IDENTITY_AUTO_DISCOVERY: false
