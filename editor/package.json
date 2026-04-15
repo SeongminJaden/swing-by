@@ -44,7 +44,7 @@
     ],
     "linux": {
       "target": [
-        { "target": "AppImage", "arch": ["x64", "arm64"] }
+        { "target": "AppImage" }
       ],
       "category": "Development",
       "artifactName": "swing-by-ide-${version}-${arch}.AppImage",
@@ -54,7 +54,7 @@
     },
     "mac": {
       "target": [
-        { "target": "dmg", "arch": ["x64", "arm64"] }
+        { "target": "dmg" }
       ],
       "category": "public.app-category.developer-tools",
       "artifactName": "swing-by-ide-${version}-${arch}.dmg",
