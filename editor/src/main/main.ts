@@ -22,7 +22,7 @@ if (process.env.NODE_ENV === 'development') {
 }
 
 // Register custom protocol for OAuth callbacks
-app.setAsDefaultProtocolClient('videplace');
+app.setAsDefaultProtocolClient('swing-by');
 
 // Request single instance lock so second-instance event fires on Linux/Windows
 const gotTheLock = app.requestSingleInstanceLock();
@@ -38,7 +38,7 @@ function createWindow() {
     height: 900,
     minWidth: 1024,
     minHeight: 700,
-    title: 'VidEplace',
+    title: 'Swing-by IDE',
     frame: false,
     backgroundColor: '#0d1117',
     webPreferences: {
@@ -70,14 +70,14 @@ function createWindow() {
 
 // Handle OAuth callback on macOS (open-url)
 app.on('open-url', (_event, url) => {
-  if (url.startsWith('videplace://')) {
+  if (url.startsWith('swing-by://')) {
     handleAuthCallback(url);
   }
 });
 
 // Handle OAuth callback on Linux/Windows (second-instance)
 app.on('second-instance', (_event, argv) => {
-  const url = argv.find((a) => a.startsWith('videplace://'));
+  const url = argv.find((a) => a.startsWith('swing-by://'));
   if (url) {
     handleAuthCallback(url);
   }

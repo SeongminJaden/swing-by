@@ -23,8 +23,8 @@ interface ProjectState {
 }
 
 
-const PROJECTS_PATH = '~/.videplace/projects.json';
-const SETTINGS_PATH = '~/.videplace/settings.json';
+const PROJECTS_PATH = '~/.swing-by/projects.json';
+const SETTINGS_PATH = '~/.swing-by/settings.json';
 
 function getAPI(): any {
   return (window as any).electronAPI;
@@ -45,7 +45,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     try {
       // Ensure directory exists
       if (api.mkdir) {
-        await api.mkdir('~/.videplace').catch(() => {});
+        await api.mkdir('~/.swing-by').catch(() => {});
       }
 
       const raw = await api.readFile(PROJECTS_PATH);
@@ -84,7 +84,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
     try {
       if (api.mkdir) {
-        await api.mkdir('~/.videplace').catch(() => {});
+        await api.mkdir('~/.swing-by').catch(() => {});
       }
       const data = JSON.stringify(get().projects, null, 2);
       await api.writeFile(PROJECTS_PATH, data);

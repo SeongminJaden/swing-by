@@ -18,13 +18,13 @@ interface ConnectionsStore {
 }
 
 // Paths
-const DATA_DIR = path.join(os.homedir(), '.videplace');
+const DATA_DIR = path.join(os.homedir(), '.swing-by');
 const CONNECTIONS_FILE = path.join(DATA_DIR, 'connections.json');
 
 // Encryption helpers (AES-256-GCM with machine-derived key)
 function deriveKey(): Buffer {
   const machineId = os.hostname() + os.userInfo().username + os.homedir();
-  return crypto.scryptSync(machineId, 'videplace-connections-salt', 32);
+  return crypto.scryptSync(machineId, 'swing-by-connections-salt', 32);
 }
 
 function encrypt(text: string): string {

@@ -250,14 +250,14 @@ export OLLAMA_MODEL="${MODEL:-gemma4:e4b}"
 
 # ─── Desktop IDE (optional) ───────────────────────────────────────────────────
 echo ""
-echo -e "${BOLD}── Desktop IDE (optional) ──────────────────────────${RESET}"
+echo -e "${BOLD}── Desktop IDE ─────────────────────────────────────${RESET}"
 echo ""
 echo -e "  Swing-by IDE is a GUI desktop app that lets you visualize"
 echo -e "  and control the multi-agent pipeline visually."
 echo ""
-ask "Install Swing-by Desktop IDE? [y/N]"
+ask "Install Swing-by Desktop IDE? [Y/n]"
 read -r ide_answer < /dev/tty
-if [[ "${ide_answer,,}" == "y" ]]; then
+if [[ "${ide_answer,,}" != "n" ]]; then
   IDE_DMG_URL="https://github.com/${REPO}/releases/latest/download/swing-by-ide-macos-${ARCH_LABEL}.dmg"
   IDE_DMG="/tmp/swing-by-ide.dmg"
   info "Downloading Swing-by IDE..."
@@ -313,7 +313,7 @@ echo ""
 echo -e "  ${BOLD}Agile sprint:${RESET}"
 echo -e "    ${GREEN}${BINARY_NAME} --agile \"Build a REST API\" --project myapp${RESET}"
 echo ""
-if [[ "${ide_answer,,}" == "y" ]]; then
+if [[ "${ide_answer,,}" != "n" ]]; then
 echo -e "  ${BOLD}Desktop IDE:${RESET}"
 echo -e "    Open ${GREEN}Swing-by IDE${RESET} from Applications or Spotlight"
 echo ""

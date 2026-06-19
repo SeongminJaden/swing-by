@@ -22,10 +22,10 @@ interface UpdaterSettings {
 }
 
 // Constants
-const DATA_DIR = path.join(os.homedir(), '.videplace');
+const DATA_DIR = path.join(os.homedir(), '.swing-by');
 const CHANGELOG_FILE = path.join(DATA_DIR, 'changelog.json');
 const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
-const GITHUB_REPO = 'SeongminJaden/videplace';
+const GITHUB_REPO = 'SeongminJaden/swing-by';
 const RELEASES_URL = `https://api.github.com/repos/${GITHUB_REPO}/releases/latest`;
 const ALL_RELEASES_URL = `https://api.github.com/repos/${GITHUB_REPO}/releases`;
 
@@ -177,7 +177,7 @@ function getAutoUpdater(): any | null {
     autoUpdater.setFeedURL({
       provider: 'github',
       owner: 'SeongminJaden',
-      repo: 'videplace',
+      repo: 'swing-by',
     });
 
     autoUpdater.autoDownload = false;

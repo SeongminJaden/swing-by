@@ -49,7 +49,7 @@ interface PaymentStore {
 }
 
 // Constants
-const DATA_DIR = path.join(os.homedir(), '.videplace');
+const DATA_DIR = path.join(os.homedir(), '.swing-by');
 const PAYMENT_FILE = path.join(DATA_DIR, 'payment.json');
 
 const LOCAL_PLANS: Plan[] = [
@@ -114,7 +114,7 @@ const LOCAL_PLANS: Plan[] = [
 
 // Encryption helpers using machine-specific key
 function getMachineKey(): Buffer {
-  const machineId = `${os.hostname()}-${os.userInfo().username}-videplace-payment`;
+  const machineId = `${os.hostname()}-${os.userInfo().username}-swing-by-payment`;
   return crypto.createHash('sha256').update(machineId).digest();
 }
 
@@ -417,7 +417,7 @@ export function registerPaymentHandlers(): void {
 
       if (!customerId) {
         const customer = await stripe.customers.create({
-          metadata: { source: 'videplace-ide' },
+          metadata: { source: 'swing-by-ide' },
         });
         customerId = customer.id;
         store.customerId = customerId;
@@ -673,7 +673,7 @@ export function registerPaymentHandlers(): void {
     try {
       const session = await stripe.billingPortal.sessions.create({
         customer: store.customerId,
-        return_url: 'https://videplace.dev',
+        return_url: 'https://github.com/SeongminJaden/swing-by',
       });
 
       if (session.url) {

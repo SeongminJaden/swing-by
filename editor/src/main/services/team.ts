@@ -30,7 +30,7 @@ interface TeamsStore {
 }
 
 // Paths
-const DATA_DIR = path.join(os.homedir(), '.videplace');
+const DATA_DIR = path.join(os.homedir(), '.swing-by');
 const TEAMS_FILE = path.join(DATA_DIR, 'teams.json');
 
 // Helpers

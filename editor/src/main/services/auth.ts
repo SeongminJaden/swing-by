@@ -26,7 +26,7 @@ let currentUser: Omit<User, 'passwordHash' | 'salt'> | null = null;
 let mainWindowRef: BrowserWindow | null = null;
 
 // Paths
-const DATA_DIR = path.join(os.homedir(), '.videplace');
+const DATA_DIR = path.join(os.homedir(), '.swing-by');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
 
 // ── Local file-based helpers ──────────────────────────────────────────
@@ -232,7 +232,7 @@ export async function handleAuthCallback(url: string): Promise<void> {
       const now = new Date().toISOString();
       currentUser = {
         id: generateId(),
-        email: 'oauth-user@videplace.com',
+        email: 'oauth-user@swing-by',
         name: 'OAuth User',
         plan: 'free',
         createdAt: now,
@@ -546,7 +546,7 @@ export function registerAuthHandlers(): void {
         const { data, error } = await supabase.auth.signInWithOAuth({
           provider,
           options: {
-            redirectTo: 'videplace://auth/callback',
+            redirectTo: 'swing-by://auth/callback',
             skipBrowserRedirect: true,
           },
         });
@@ -593,7 +593,7 @@ export function registerAuthHandlers(): void {
             const fullUrl = `http://localhost:39281${req.url}`;
             const callbackUrl = new URL(fullUrl);
             const fragment = callbackUrl.hash?.slice(1) || callbackUrl.search?.slice(1) || '';
-            handleAuthCallback(`videplace://auth/callback?${fragment}&${callbackUrl.searchParams.toString()}`);
+            handleAuthCallback(`swing-by://auth/callback?${fragment}&${callbackUrl.searchParams.toString()}`);
 
             // Close server and window
             setTimeout(() => {
@@ -622,7 +622,7 @@ export function registerAuthHandlers(): void {
 
         // Also listen for URL changes in case the redirect comes through the window
         authWin.webContents.on('will-redirect', (_e: any, url: string) => {
-          if (url.includes('localhost:39281/callback') || url.startsWith('videplace://')) {
+          if (url.includes('localhost:39281/callback') || url.startsWith('swing-by://')) {
             handleAuthCallback(url);
             callbackServer.close();
             if (!authWin.isDestroyed()) authWin.close();

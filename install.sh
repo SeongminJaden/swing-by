@@ -232,16 +232,16 @@ fi
 export OLLAMA_API_URL="http://localhost:11434"
 export OLLAMA_MODEL="${MODEL:-gemma4:e4b}"
 
-# ─── Desktop IDE (optional) ───────────────────────────────────────────────────
+# ─── Desktop IDE ─────────────────────────────────────────────────────────────
 echo ""
-echo -e "${BOLD}── Desktop IDE (optional) ──────────────────────────${RESET}"
+echo -e "${BOLD}── Desktop IDE ─────────────────────────────────────${RESET}"
 echo ""
-echo -e "  Swing-by IDE is a GUI desktop app (Electron) that lets you"
-echo -e "  visualize and control the multi-agent pipeline visually."
+echo -e "  Swing-by IDE is a GUI desktop app that lets you visualize"
+echo -e "  and control the multi-agent pipeline visually."
 echo ""
-ask "Install Swing-by Desktop IDE? [y/N]"
+ask "Install Swing-by Desktop IDE? [Y/n]"
 read -r ide_answer < /dev/tty
-if [[ "${ide_answer,,}" == "y" ]]; then
+if [[ "${ide_answer,,}" != "n" ]]; then
   IDE_APPIMAGE_URL="https://github.com/${REPO}/releases/latest/download/swing-by-ide-linux-x86_64.AppImage"
   if [[ "$ARCH_LABEL" == "arm64" ]]; then
     IDE_APPIMAGE_URL="https://github.com/${REPO}/releases/latest/download/swing-by-ide-linux-arm64.AppImage"
@@ -303,7 +303,7 @@ echo ""
 echo -e "  ${BOLD}Agile sprint:${RESET}"
 echo -e "    ${GREEN}${BINARY_NAME} --agile \"Build a REST API\" --project myapp${RESET}"
 echo ""
-if [[ "${ide_answer,,}" == "y" ]] && [[ -f "$IDE_APPIMAGE" ]]; then
+if [[ "${ide_answer,,}" != "n" ]] && [[ -f "$IDE_APPIMAGE" ]]; then
 echo -e "  ${BOLD}Desktop IDE:${RESET}"
 echo -e "    ${GREEN}${IDE_APPIMAGE}${RESET}   # launch GUI"
 echo ""

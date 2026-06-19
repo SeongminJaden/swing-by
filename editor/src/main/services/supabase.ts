@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 
-const CONFIG_PATH = path.join(os.homedir(), '.videplace', 'supabase.json');
+const CONFIG_PATH = path.join(os.homedir(), '.swing-by', 'supabase.json');
 
 // Default Supabase config (can be overridden by user)
 const DEFAULT_URL = 'https://your-project.supabase.co';
